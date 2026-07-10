@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { extractSeasons, extractTRProviders, getTitleDetails } from "@/lib/tmdb";
+import { extractSeasons, extractTRProviders, extractWatchLink, getTitleDetails } from "@/lib/tmdb";
 import type { Title, TitleType } from "@/lib/types";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
       poster_path: details.poster_path ?? null,
       backdrop_path: details.backdrop_path ?? null,
       providers: extractTRProviders(details),
+      watch_link: extractWatchLink(details),
       seasons: type === "tv" ? extractSeasons(details) : [],
       vote: details.vote_average ?? null,
       cached_at: new Date().toISOString(),

@@ -55,6 +55,10 @@ export function extractTRProviders(details: any): Providers {
   };
 }
 
+export function extractWatchLink(details: any): string | null {
+  return details?.["watch/providers"]?.results?.TR?.link ?? null;
+}
+
 export function extractSeasons(details: any): TitleSeason[] {
   if (!details?.seasons) return [];
   return details.seasons

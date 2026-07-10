@@ -154,7 +154,7 @@ export default function TitleDetailPage() {
           <p className="mt-3 text-sm leading-relaxed text-white/60">{title.overview}</p>
         )}
 
-        <ProvidersSection providers={title.providers} />
+        <ProvidersSection providers={title.providers} watchLink={title.watch_link} />
 
         <section className="mt-6 rounded-2xl border border-white/5 bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold text-white/80">Takip Durumu</h2>
@@ -204,7 +204,13 @@ export default function TitleDetailPage() {
   );
 }
 
-function ProvidersSection({ providers }: { providers: Title["providers"] }) {
+function ProvidersSection({
+  providers,
+  watchLink,
+}: {
+  providers: Title["providers"];
+  watchLink: string | null;
+}) {
   const all = [...(providers.flatrate ?? []), ...(providers.rent ?? []), ...(providers.buy ?? [])];
   const unique = Array.from(new Map(all.map((p) => [p.provider_id, p])).values());
 
@@ -215,8 +221,11 @@ function ProvidersSection({ providers }: { providers: Title["providers"] }) {
       <h2 className="mb-2 text-sm font-semibold text-white/80">Nereden İzlenir</h2>
       <div className="flex flex-wrap gap-3">
         {unique.map((p) => (
-          <div
+          <a
             key={p.provider_id}
+            href={watchLink ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
             className="relative h-12 w-12 overflow-hidden rounded-full border border-white/5 bg-card"
             title={p.provider_name}
           >
@@ -227,7 +236,7 @@ function ProvidersSection({ providers }: { providers: Title["providers"] }) {
               sizes="48px"
               className="object-cover"
             />
-          </div>
+          </a>
         ))}
       </div>
     </section>

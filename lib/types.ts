@@ -26,6 +26,7 @@ export type Title = {
   poster_path: string | null;
   backdrop_path: string | null;
   providers: Providers;
+  watch_link: string | null;
   seasons: TitleSeason[];
   vote: number | null;
   cached_at: string;
