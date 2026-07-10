@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Star } from "lucide-react";
+import Link from "next/link";
+import { Search, Star } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import EpisodeGrid from "@/components/EpisodeGrid";
 import type { ProgressStatus, Title, WatchedProgress } from "@/lib/types";
@@ -126,6 +127,13 @@ export default function TitleDetailPage() {
           <div className="h-full w-full bg-card" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
+
+        <Link
+          href="/?focus=search"
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 backdrop-blur"
+        >
+          <Search size={18} className="text-white" />
+        </Link>
       </div>
 
       <div className="relative -mt-10 px-4">
@@ -141,6 +149,10 @@ export default function TitleDetailPage() {
             </span>
           )}
         </p>
+
+        {title.overview && (
+          <p className="mt-3 text-sm leading-relaxed text-white/60">{title.overview}</p>
+        )}
 
         <ProvidersSection providers={title.providers} />
 

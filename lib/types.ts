@@ -22,6 +22,7 @@ export type Title = {
   tmdb_id: number;
   type: TitleType;
   title: string;
+  overview: string | null;
   poster_path: string | null;
   backdrop_path: string | null;
   providers: Providers;

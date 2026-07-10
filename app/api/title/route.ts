@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
       tmdb_id: tmdbId,
       type,
       title: details.title ?? details.name,
+      overview: details.overview || null,
       poster_path: details.poster_path ?? null,
       backdrop_path: details.backdrop_path ?? null,
       providers: extractTRProviders(details),
