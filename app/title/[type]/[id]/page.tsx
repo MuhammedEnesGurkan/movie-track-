@@ -7,7 +7,9 @@ import Link from "next/link";
 import { Search, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import EpisodeGrid from "@/components/EpisodeGrid";
-import type { ProgressStatus, Title, WatchedProgress } from "@/lib/types";
+import ProviderButton from "@/components/ProviderButton";
+import WatchReturnPrompt from "@/components/WatchReturnPrompt";
+import type { ProgressStatus, Title, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
 
@@ -103,6 +105,24 @@ export default function TitleDetailPage() {
     persist(nextStatus, nextProgress);
   }
 
+  function handleConfirmEpisodeWatched(seasonNumber: number, episodeNumber: number) {
+    const seasonKey = String(seasonNumber);
+    const current = progress[seasonKey] ?? [];
+    const next = current.includes(episodeNumber)
+      ? current
+      : [...current, episodeNumber].sort((a, b) => a - b);
+    const nextProgress = { ...progress, [seasonKey]: next };
+
+    setProgress(nextProgress);
+    setStatus("watching");
+    persist("watching", nextProgress);
+  }
+
+  function handleConfirmMovieWatched() {
+    setStatus("completed");
+    persist("completed", progress);
+  }
+
   if (loading) {
     return <p className="p-6 text-center text-sm text-white/40">Yükleniyor...</p>;
   }
@@ -155,7 +175,14 @@ export default function TitleDetailPage() {
           <p className="mt-3 text-sm leading-relaxed text-white/60">{title.overview}</p>
         )}
 
-        <ProvidersSection providers={title.providers} watchLink={title.watch_link} />
+        <ProvidersSection
+          providers={title.providers}
+          watchLink={title.watch_link}
+          title={title.title}
+          tmdbId={Number(id)}
+          type={type}
+          trackVisit={!!userId}
+        />
 
         <section className="mt-6 rounded-2xl border border-white/5 bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold text-white/80">Takip Durumu</h2>
@@ -201,6 +228,17 @@ export default function TitleDetailPage() {
           )}
         </section>
       </div>
+
+      <WatchReturnPrompt
+        userId={userId}
+        tmdbId={Number(id)}
+        type={type}
+        title={title.title}
+        seasons={title.seasons}
+        progress={progress}
+        onConfirmEpisode={handleConfirmEpisodeWatched}
+        onConfirmMovie={handleConfirmMovieWatched}
+      />
     </div>
   );
 }
@@ -208,9 +246,17 @@ export default function TitleDetailPage() {
 function ProvidersSection({
   providers,
   watchLink,
+  title,
+  tmdbId,
+  type,
+  trackVisit,
 }: {
   providers: Title["providers"];
   watchLink: string | null;
+  title: string;
+  tmdbId: number;
+  type: TitleType;
+  trackVisit: boolean;
 }) {
   const all = [...(providers.flatrate ?? []), ...(providers.rent ?? []), ...(providers.buy ?? [])];
   const unique = Array.from(new Map(all.map((p) => [p.provider_id, p])).values());
@@ -222,22 +268,15 @@ function ProvidersSection({
       <h2 className="mb-2 text-sm font-semibold text-white/80">Nereden İzlenir</h2>
       <div className="flex flex-wrap gap-3">
         {unique.map((p) => (
-          <a
+          <ProviderButton
             key={p.provider_id}
-            href={watchLink ?? undefined}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative h-12 w-12 overflow-hidden rounded-full border border-white/5 bg-card"
-            title={p.provider_name}
-          >
-            <Image
-              src={`${TMDB_IMG}/w92${p.logo_path}`}
-              alt={p.provider_name}
-              fill
-              sizes="48px"
-              className="object-cover"
-            />
-          </a>
+            provider={p}
+            title={title}
+            tmdbId={tmdbId}
+            type={type}
+            fallbackWatchLink={watchLink}
+            trackVisit={trackVisit}
+          />
         ))}
       </div>
     </section>
