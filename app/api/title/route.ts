@@ -59,7 +59,12 @@ export async function GET(req: NextRequest) {
     if (cached) {
       return NextResponse.json({ title: cached as Title, stale: true });
     }
-    const message = err instanceof Error ? err.message : String(err);
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null
+          ? JSON.stringify(err)
+          : String(err);
     return NextResponse.json({ error: "TMDB unavailable", detail: message }, { status: 502 });
   }
 }
