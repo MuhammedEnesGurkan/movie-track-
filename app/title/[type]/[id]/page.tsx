@@ -147,7 +147,7 @@ export default function TitleDetailPage() {
         ) : (
           <div className="h-full w-full bg-card" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-bg to-transparent" />
 
         <Link
           href="/?focus=search"
@@ -157,11 +157,9 @@ export default function TitleDetailPage() {
         </Link>
       </div>
 
-      <div className="relative -mt-10 px-4">
-        <h1 className="text-xl font-bold drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-          {title.title}
-        </h1>
-        <p className="mt-1 flex items-center gap-2 text-sm text-white/70 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
+      <div className="relative px-4 pt-4">
+        <h1 className="text-xl font-bold">{title.title}</h1>
+        <p className="mt-1 flex items-center gap-2 text-sm text-white/70">
           <span>{type === "movie" ? "Film" : "Dizi"}</span>
           {title.vote != null && (
             <span className="flex items-center gap-1">
