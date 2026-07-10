@@ -54,10 +54,12 @@ export async function GET(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ title: upserted as Title });
-  } catch {
+  } catch (err) {
+    console.error("api/title failed", err);
     if (cached) {
       return NextResponse.json({ title: cached as Title, stale: true });
     }
-    return NextResponse.json({ error: "TMDB unavailable" }, { status: 502 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "TMDB unavailable", detail: message }, { status: 502 });
   }
 }
