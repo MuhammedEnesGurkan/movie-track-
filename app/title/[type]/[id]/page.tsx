@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Search, Star } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import EpisodeGrid from "@/components/EpisodeGrid";
 import type { ProgressStatus, Title, WatchedProgress } from "@/lib/types";
 
@@ -22,6 +22,7 @@ export default function TitleDetailPage() {
   const router = useRouter();
   const type = params.type as "movie" | "tv";
   const id = params.id as string;
+  const supabase = useMemo(() => createClient(), []);
 
   const [title, setTitle] = useState<Title | null>(null);
   const [loading, setLoading] = useState(true);

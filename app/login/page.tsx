@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Clapperboard } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,6 +14,7 @@ export default function LoginPage() {
     if (!email.trim()) return;
     setLoading(true);
     setError(null);
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { shouldCreateUser },

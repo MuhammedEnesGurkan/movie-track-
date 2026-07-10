@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { createAdminClient } from "@/lib/supabase/server";
 import { extractSeasons, extractTRProviders, extractWatchLink, getTitleDetails } from "@/lib/tmdb";
 import type { Title, TitleType } from "@/lib/types";
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   const tmdbId = Number(id);
-  const db = supabaseAdmin();
+  const db = createAdminClient();
 
   const { data: cached } = await db
     .from("titles")

@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { ProgressStatus, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
@@ -42,6 +42,7 @@ function ProfileContent() {
 
   useEffect(() => {
     (async () => {
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

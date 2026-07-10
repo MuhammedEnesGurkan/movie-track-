@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Search as SearchIcon } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import PosterCard from "@/components/PosterCard";
 import type { SearchResult } from "@/lib/types";
 
@@ -59,6 +59,7 @@ function HomeContent() {
 
   useEffect(() => {
     (async () => {
+      const supabase = createClient();
       const trendData = await fetch("/api/trending").then((r) => r.json());
       const trendResults: SearchResult[] = trendData.results ?? [];
       setTrending(trendResults);
