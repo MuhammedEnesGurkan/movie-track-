@@ -96,7 +96,7 @@ function ProfileContent() {
     );
   }
 
-  const seriesCount = items.filter((i) => i.type === "tv").length;
+  const seriesCount = items.filter((i) => i.type === "tv" && i.status === "completed").length;
   const episodeCount = items.reduce(
     (sum, i) => sum + Object.values(i.progress).reduce((s, eps) => s + eps.length, 0),
     0

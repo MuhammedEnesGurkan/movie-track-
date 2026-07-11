@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import EpisodeGrid from "@/components/EpisodeGrid";
 import ProviderButton from "@/components/ProviderButton";
 import WatchReturnPrompt from "@/components/WatchReturnPrompt";
-import type { ProgressStatus, Title, TitleType, WatchedProgress } from "@/lib/types";
+import type { ProgressStatus, Title, TitleSeason, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
 
@@ -18,6 +18,25 @@ const STATUS_OPTIONS: { value: ProgressStatus; label: string }[] = [
   { value: "plan", label: "İzleyeceğim" },
   { value: "completed", label: "Bitirdim" },
 ];
+
+function getTotalEpisodes(seasons: TitleSeason[]) {
+  return seasons
+    .filter((s) => s.season_number > 0)
+    .reduce((sum, s) => sum + s.episode_count, 0);
+}
+
+function countWatched(progress: WatchedProgress) {
+  return Object.values(progress).reduce((sum, eps) => sum + eps.length, 0);
+}
+
+function buildFullProgress(seasons: TitleSeason[]): WatchedProgress {
+  const result: WatchedProgress = {};
+  for (const s of seasons) {
+    if (s.season_number <= 0) continue;
+    result[String(s.season_number)] = Array.from({ length: s.episode_count }, (_, i) => i + 1);
+  }
+  return result;
+}
 
 export default function TitleDetailPage() {
   const params = useParams<{ type: string; id: string }>();
@@ -32,6 +51,14 @@ export default function TitleDetailPage() {
   const [status, setStatus] = useState<ProgressStatus | null>(null);
   const [progress, setProgress] = useState<WatchedProgress>({});
   const [activeSeason, setActiveSeason] = useState<number | null>(null);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     (async () => {
@@ -82,8 +109,21 @@ export default function TitleDetailPage() {
       router.push("/login");
       return;
     }
+    if (next === "completed" && type === "tv") {
+      setShowCompleteConfirm(true);
+      return;
+    }
     setStatus(next);
     persist(next, progress);
+  }
+
+  function confirmCompleteAll() {
+    if (!title) return;
+    const fullProgress = buildFullProgress(title.seasons);
+    setProgress(fullProgress);
+    setStatus("completed");
+    persist("completed", fullProgress);
+    setShowCompleteConfirm(false);
   }
 
   function handleToggleEpisode(seasonNumber: number, episodeNumber: number) {
@@ -91,21 +131,43 @@ export default function TitleDetailPage() {
       router.push("/login");
       return;
     }
+    if (!title) return;
+
     const seasonKey = String(seasonNumber);
     const current = progress[seasonKey] ?? [];
-    const next = current.includes(episodeNumber)
+    const wasWatched = current.includes(episodeNumber);
+    const next = wasWatched
       ? current.filter((n) => n !== episodeNumber)
       : [...current, episodeNumber].sort((a, b) => a - b);
 
     const nextProgress = { ...progress, [seasonKey]: next };
-    const nextStatus = status ?? "watching";
+    const totalEpisodes = getTotalEpisodes(title.seasons);
+    const totalWatched = countWatched(nextProgress);
+
+    let nextStatus = status ?? "watching";
+    let justCompleted = false;
+
+    if (wasWatched && status === "completed") {
+      nextStatus = "watching";
+    } else if (
+      !wasWatched &&
+      status !== "completed" &&
+      totalEpisodes > 0 &&
+      totalWatched >= totalEpisodes
+    ) {
+      nextStatus = "completed";
+      justCompleted = true;
+    }
 
     setProgress(nextProgress);
     setStatus(nextStatus);
     persist(nextStatus, nextProgress);
+    if (justCompleted) setToast("Diziyi bitirdin 🎉");
   }
 
   function handleConfirmEpisodeWatched(seasonNumber: number, episodeNumber: number) {
+    if (!title) return;
+
     const seasonKey = String(seasonNumber);
     const current = progress[seasonKey] ?? [];
     const next = current.includes(episodeNumber)
@@ -113,9 +175,15 @@ export default function TitleDetailPage() {
       : [...current, episodeNumber].sort((a, b) => a - b);
     const nextProgress = { ...progress, [seasonKey]: next };
 
+    const totalEpisodes = getTotalEpisodes(title.seasons);
+    const totalWatched = countWatched(nextProgress);
+    const isNowComplete = totalEpisodes > 0 && totalWatched >= totalEpisodes;
+    const nextStatus: ProgressStatus = isNowComplete ? "completed" : "watching";
+
     setProgress(nextProgress);
-    setStatus("watching");
-    persist("watching", nextProgress);
+    setStatus(nextStatus);
+    persist(nextStatus, nextProgress);
+    if (isNowComplete) setToast("Diziyi bitirdin 🎉");
   }
 
   function handleConfirmMovieWatched() {
@@ -300,6 +368,39 @@ export default function TitleDetailPage() {
         onConfirmEpisode={handleConfirmEpisodeWatched}
         onConfirmMovie={handleConfirmMovieWatched}
       />
+
+      {showCompleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-card p-5">
+            <p className="text-sm text-white/80">
+              Tüm bölümler izlendi olarak işaretlenecek ({getTotalEpisodes(title.seasons)} bölüm).
+              Onaylıyor musun?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={confirmCompleteAll}
+                className="flex-1 rounded-full bg-accent py-3 text-sm font-semibold text-black"
+              >
+                Evet
+              </button>
+              <button
+                onClick={() => setShowCompleteConfirm(false)}
+                className="flex-1 rounded-full border border-white/20 py-3 text-sm font-semibold text-white"
+              >
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 lg:bottom-8">
+          <div className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black">
+            {toast}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
