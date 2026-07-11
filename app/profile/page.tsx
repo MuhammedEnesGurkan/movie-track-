@@ -105,27 +105,29 @@ function ProfileContent() {
   const initials = email.slice(0, 2).toUpperCase();
 
   return (
-    <div className="px-4 pb-6 pt-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/5 bg-card text-lg font-semibold text-accent">
-          {initials}
+    <div className="px-4 pb-6 pt-6 md:px-6 lg:px-8">
+      <div className="mx-auto max-w-2xl">
+        <div className="flex items-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/5 bg-card text-lg font-semibold text-accent">
+            {initials}
+          </div>
+          <p className="truncate text-sm font-semibold">{email}</p>
         </div>
-        <p className="truncate text-sm font-semibold">{email}</p>
-      </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-white/5 bg-card p-4 text-center">
-          <p className="text-xl font-bold text-accent">{seriesCount}</p>
-          <p className="text-xs text-white/50">İzlenen Dizi</p>
-        </div>
-        <div className="rounded-2xl border border-white/5 bg-card p-4 text-center">
-          <p className="text-xl font-bold text-accent">{episodeCount}</p>
-          <p className="text-xs text-white/50">İzlenen Bölüm</p>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-white/5 bg-card p-4 text-center">
+            <p className="text-xl font-bold text-accent">{seriesCount}</p>
+            <p className="text-xs text-white/50">İzlenen Dizi</p>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-card p-4 text-center">
+            <p className="text-xl font-bold text-accent">{episodeCount}</p>
+            <p className="text-xs text-white/50">İzlenen Bölüm</p>
+          </div>
         </div>
       </div>
 
       <div id="library" className="mt-6">
-        <div className="flex border-b border-white/5">
+        <div className="mx-auto flex max-w-2xl border-b border-white/5">
           {TABS.map((tab) => (
             <button
               key={tab.value}
@@ -142,7 +144,7 @@ function ProfileContent() {
         {filtered.length === 0 ? (
           <p className="py-10 text-center text-sm text-white/40">Bu listede henüz içerik yok</p>
         ) : (
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6">
             {filtered.map((item) => (
               <LibraryCard key={`${item.type}-${item.tmdb_id}`} item={item} />
             ))}
@@ -157,13 +159,13 @@ function LibraryCard({ item }: { item: LibraryItem }) {
   const summary = getProgressSummary(item);
   return (
     <Link href={`/title/${item.type}/${item.tmdb_id}`} className="flex flex-col gap-1.5">
-      <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-card">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-card transition lg:hover:scale-105 lg:hover:ring-1 lg:hover:ring-white/10">
         {item.poster_path ? (
           <Image
             src={`${TMDB_IMG}/w342${item.poster_path}`}
             alt={item.title}
             fill
-            sizes="120px"
+            sizes="(min-width: 1024px) 15vw, (min-width: 768px) 22vw, 30vw"
             className="object-cover"
           />
         ) : (

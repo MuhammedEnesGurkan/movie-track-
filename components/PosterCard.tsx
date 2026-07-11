@@ -24,14 +24,14 @@ export default function PosterCard({
   const flatrate = providers?.flatrate ?? [];
 
   return (
-    <Link href={`/title/${type}/${tmdbId}`} className="flex w-28 shrink-0 flex-col gap-1.5">
-      <div className="relative aspect-[2/3] w-28 overflow-hidden rounded-xl border border-white/5 bg-card">
+    <Link href={`/title/${type}/${tmdbId}`} className="flex w-28 shrink-0 flex-col gap-1.5 lg:w-full">
+      <div className="relative aspect-[2/3] w-28 overflow-hidden rounded-xl border border-white/5 bg-card transition lg:w-full lg:hover:scale-105 lg:hover:ring-1 lg:hover:ring-white/10">
         {posterPath ? (
           <Image
             src={`${TMDB_IMG}/w342${posterPath}`}
             alt={title}
             fill
-            sizes="112px"
+            sizes="(min-width: 1280px) 14vw, (min-width: 1024px) 16vw, 112px"
             className="object-cover"
           />
         ) : (

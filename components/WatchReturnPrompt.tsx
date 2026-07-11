@@ -113,8 +113,8 @@ export default function WatchReturnPrompt({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-t-2xl border-t border-white/10 bg-card p-5 pb-8">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 lg:items-center">
+      <div className="w-full max-w-md rounded-t-2xl border-t border-white/10 bg-card p-5 pb-8 lg:rounded-2xl lg:border lg:pb-5">
         <h3 className="text-base font-semibold">{title}</h3>
         <p className="mt-1 text-sm text-white/60">
           {type === "movie"

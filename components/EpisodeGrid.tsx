@@ -8,7 +8,7 @@ export default function EpisodeGrid({ episodeCount, watched, onToggle }: Episode
   const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1);
 
   return (
-    <div className="mt-3 grid grid-cols-5 gap-2">
+    <div className="mt-3 grid grid-cols-5 gap-2 lg:grid-cols-8 xl:grid-cols-10">
       {episodes.map((ep) => {
         const isWatched = watched.includes(ep);
         return (

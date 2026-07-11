@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import TabBar from "@/components/TabBar";
+import Sidebar from "@/components/Sidebar";
 import AuthListener from "@/components/AuthListener";
 import "./globals.css";
 
@@ -17,7 +18,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="tr">
       <body className={`${inter.className} bg-bg text-white`}>
         <AuthListener />
-        <div className="mx-auto min-h-screen max-w-md pb-20">{children}</div>
+        <Suspense fallback={null}>
+          <Sidebar />
+        </Suspense>
+        <div className="mx-auto min-h-screen max-w-md pb-20 md:max-w-3xl lg:max-w-6xl lg:pb-6 lg:pl-56">
+          {children}
+        </div>
         <Suspense fallback={null}>
           <TabBar />
         </Suspense>

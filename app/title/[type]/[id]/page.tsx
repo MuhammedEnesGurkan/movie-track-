@@ -133,9 +133,49 @@ export default function TitleDetailPage() {
 
   const activeSeasonMeta = title.seasons.find((s) => s.season_number === activeSeason);
 
+  const statusButtons = (variant: "row" | "col") => (
+    <div className={variant === "row" ? "flex gap-2" : "flex flex-col gap-2"}>
+      {STATUS_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => handleStatusChange(opt.value)}
+          className={`${variant === "row" ? "flex-1" : "w-full"} rounded-full py-2 text-xs font-medium transition ${
+            status === opt.value ? "bg-accent text-black" : "border border-white/10 text-white/60"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const seasonAndEpisodes = (
+    <>
+      <select
+        value={activeSeason ?? ""}
+        onChange={(e) => setActiveSeason(Number(e.target.value))}
+        className="w-full rounded-xl border border-white/10 bg-bg px-3 py-2 text-sm text-white outline-none"
+      >
+        {title.seasons.map((s) => (
+          <option key={s.season_number} value={s.season_number}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+
+      {activeSeasonMeta && (
+        <EpisodeGrid
+          episodeCount={activeSeasonMeta.episode_count}
+          watched={progress[String(activeSeasonMeta.season_number)] ?? []}
+          onToggle={(ep) => handleToggleEpisode(activeSeasonMeta.season_number, ep)}
+        />
+      )}
+    </>
+  );
+
   return (
-    <div className="pb-6">
-      <div className="relative h-56 w-full">
+    <div className="pb-6 lg:pb-10">
+      <div className="relative h-56 w-full lg:h-80">
         {title.backdrop_path ? (
           <Image
             src={`${TMDB_IMG}/w780${title.backdrop_path}`}
@@ -157,7 +197,8 @@ export default function TitleDetailPage() {
         </Link>
       </div>
 
-      <div className="relative px-4 pt-4">
+      {/* Mobil/tablet: mevcut tek kolon akış (birebir korunuyor) */}
+      <div className="relative px-4 pt-4 md:px-6 lg:hidden">
         <h1 className="text-xl font-bold">{title.title}</h1>
         <p className="mt-1 flex items-center gap-2 text-sm text-white/70">
           <span>{type === "movie" ? "Film" : "Dizi"}</span>
@@ -184,47 +225,69 @@ export default function TitleDetailPage() {
 
         <section className="mt-6 rounded-2xl border border-white/5 bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold text-white/80">Takip Durumu</h2>
-
-          <div className="flex gap-2">
-            {STATUS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => handleStatusChange(opt.value)}
-                className={`flex-1 rounded-full py-2 text-xs font-medium transition ${
-                  status === opt.value
-                    ? "bg-accent text-black"
-                    : "border border-white/10 text-white/60"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
+          {statusButtons("row")}
           {type === "tv" && title.seasons.length > 0 && (
-            <div className="mt-4">
-              <select
-                value={activeSeason ?? ""}
-                onChange={(e) => setActiveSeason(Number(e.target.value))}
-                className="w-full rounded-xl border border-white/10 bg-bg px-3 py-2 text-sm text-white outline-none"
-              >
-                {title.seasons.map((s) => (
-                  <option key={s.season_number} value={s.season_number}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-
-              {activeSeasonMeta && (
-                <EpisodeGrid
-                  episodeCount={activeSeasonMeta.episode_count}
-                  watched={progress[String(activeSeasonMeta.season_number)] ?? []}
-                  onToggle={(ep) => handleToggleEpisode(activeSeasonMeta.season_number, ep)}
-                />
-              )}
-            </div>
+            <div className="mt-4">{seasonAndEpisodes}</div>
           )}
         </section>
+      </div>
+
+      {/* Masaüstü: iki kolon */}
+      <div className="hidden lg:grid lg:grid-cols-[18rem_1fr] lg:items-start lg:gap-8 lg:px-8 lg:pt-8">
+        <div className="flex flex-col gap-6 lg:sticky lg:top-8">
+          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl border border-white/5 bg-card">
+            {title.poster_path ? (
+              <Image
+                src={`${TMDB_IMG}/w342${title.poster_path}`}
+                alt={title.title}
+                fill
+                sizes="288px"
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center p-2 text-center text-xs text-white/30">
+                {title.title}
+              </div>
+            )}
+          </div>
+
+          <ProvidersSection
+            providers={title.providers}
+            watchLink={title.watch_link}
+            title={title.title}
+            tmdbId={Number(id)}
+            type={type}
+            trackVisit={!!userId}
+          />
+
+          <div className="rounded-2xl border border-white/5 bg-card p-4">
+            <h2 className="mb-3 text-sm font-semibold text-white/80">Takip Durumu</h2>
+            {statusButtons("col")}
+          </div>
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-bold">{title.title}</h1>
+          <p className="mt-1 flex items-center gap-2 text-sm text-white/70">
+            <span>{type === "movie" ? "Film" : "Dizi"}</span>
+            {title.vote != null && (
+              <span className="flex items-center gap-1">
+                <Star size={14} className="fill-accent text-accent" />
+                {title.vote.toFixed(1)}
+              </span>
+            )}
+          </p>
+
+          {title.overview && (
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/60">
+              {title.overview}
+            </p>
+          )}
+
+          {type === "tv" && title.seasons.length > 0 && (
+            <div className="mt-6 max-w-xl">{seasonAndEpisodes}</div>
+          )}
+        </div>
       </div>
 
       <WatchReturnPrompt

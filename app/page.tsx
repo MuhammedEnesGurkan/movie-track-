@@ -98,8 +98,8 @@ function HomeContent() {
   const showSearch = query.trim().length > 0;
 
   return (
-    <main className="px-4 pt-6">
-      <div className="relative">
+    <main className="px-4 pt-6 md:px-6 lg:px-8">
+      <div className="relative md:mx-auto md:max-w-xl">
         <SearchIcon
           size={18}
           className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/40"
@@ -114,7 +114,7 @@ function HomeContent() {
       </div>
 
       {showSearch ? (
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col gap-2 md:mx-auto md:max-w-xl">
           {searching && <p className="py-6 text-center text-sm text-white/40">Aranıyor...</p>}
           {!searching && results.length === 0 && (
             <p className="py-6 text-center text-sm text-white/40">Sonuç bulunamadı</p>
@@ -161,7 +161,7 @@ function Rail({ title, items }: { title: string; items: SearchResult[] }) {
   return (
     <section>
       <h2 className="mb-2 text-sm font-semibold text-white/80">{title}</h2>
-      <div className="flex gap-3 overflow-x-auto pb-1">
+      <div className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible xl:grid-cols-7">
         {items.map((item) => (
           <PosterCard
             key={`${item.type}-${item.tmdb_id}`}
