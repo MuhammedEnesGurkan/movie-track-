@@ -52,6 +52,7 @@ export default function TitleDetailPage() {
   const [progress, setProgress] = useState<WatchedProgress>({});
   const [activeSeason, setActiveSeason] = useState<number | null>(null);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -191,6 +192,14 @@ export default function TitleDetailPage() {
     persist("completed", progress);
   }
 
+  async function handleRemoveFromLibrary() {
+    if (!userId) return;
+    await supabase.from("user_progress").delete().eq("user_id", userId).eq("tmdb_id", Number(id));
+    setStatus(null);
+    setProgress({});
+    setShowRemoveConfirm(false);
+  }
+
   if (loading) {
     return <p className="p-6 text-center text-sm text-white/40">Yükleniyor...</p>;
   }
@@ -215,6 +224,15 @@ export default function TitleDetailPage() {
         </button>
       ))}
     </div>
+  );
+
+  const removeButton = status !== null && (
+    <button
+      onClick={() => setShowRemoveConfirm(true)}
+      className="mt-3 w-full text-center text-xs text-red-400/80"
+    >
+      Kütüphaneden Çıkar
+    </button>
   );
 
   const seasonAndEpisodes = (
@@ -297,6 +315,7 @@ export default function TitleDetailPage() {
           {type === "tv" && title.seasons.length > 0 && (
             <div className="mt-4">{seasonAndEpisodes}</div>
           )}
+          {removeButton}
         </section>
       </div>
 
@@ -331,6 +350,7 @@ export default function TitleDetailPage() {
           <div className="rounded-2xl border border-white/5 bg-card p-4">
             <h2 className="mb-3 text-sm font-semibold text-white/80">Takip Durumu</h2>
             {statusButtons("col")}
+            {removeButton}
           </div>
         </div>
 
@@ -385,6 +405,30 @@ export default function TitleDetailPage() {
               </button>
               <button
                 onClick={() => setShowCompleteConfirm(false)}
+                className="flex-1 rounded-full border border-white/20 py-3 text-sm font-semibold text-white"
+              >
+                Vazgeç
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRemoveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-card p-5">
+            <p className="text-sm text-white/80">
+              Bu başlığı kütüphaneden çıkarmak istediğine emin misin? Tüm ilerleme silinecek.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={handleRemoveFromLibrary}
+                className="flex-1 rounded-full bg-red-500 py-3 text-sm font-semibold text-white"
+              >
+                Evet, çıkar
+              </button>
+              <button
+                onClick={() => setShowRemoveConfirm(false)}
                 className="flex-1 rounded-full border border-white/20 py-3 text-sm font-semibold text-white"
               >
                 Vazgeç
