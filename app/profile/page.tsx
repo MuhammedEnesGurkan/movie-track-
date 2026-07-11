@@ -97,6 +97,7 @@ function ProfileContent() {
   }
 
   const seriesCount = items.filter((i) => i.type === "tv" && i.status === "completed").length;
+  const movieCount = items.filter((i) => i.type === "movie" && i.status === "completed").length;
   const episodeCount = items.reduce(
     (sum, i) => sum + Object.values(i.progress).reduce((s, eps) => s + eps.length, 0),
     0
@@ -114,10 +115,14 @@ function ProfileContent() {
           <p className="truncate text-sm font-semibold">{email}</p>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-3 gap-3">
           <div className="rounded-2xl border border-white/5 bg-card p-4 text-center">
             <p className="text-xl font-bold text-accent">{seriesCount}</p>
             <p className="text-xs text-white/50">İzlenen Dizi</p>
+          </div>
+          <div className="rounded-2xl border border-white/5 bg-card p-4 text-center">
+            <p className="text-xl font-bold text-accent">{movieCount}</p>
+            <p className="text-xs text-white/50">İzlenen Film</p>
           </div>
           <div className="rounded-2xl border border-white/5 bg-card p-4 text-center">
             <p className="text-xl font-bold text-accent">{episodeCount}</p>
