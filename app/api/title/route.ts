@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { extractSeasons, extractTRProviders, extractWatchLink, getTitleDetails } from "@/lib/tmdb";
+import { buildPlatformInfo } from "@/lib/streamingPlatforms";
 import type { Title, TitleType } from "@/lib/types";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -27,20 +28,22 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (cached && isFresh(cached.cached_at)) {
-    return NextResponse.json({ title: cached as Title });
+    const platforms = await buildPlatformInfo(cached.providers);
+    return NextResponse.json({ title: { ...cached, platforms } as Title });
   }
 
   try {
     const details = await getTitleDetails(type, id);
+    const providers = extractTRProviders(details);
 
-    const row: Title = {
+    const row: Omit<Title, "platforms"> = {
       tmdb_id: tmdbId,
       type,
       title: details.title ?? details.name,
       overview: details.overview || null,
       poster_path: details.poster_path ?? null,
       backdrop_path: details.backdrop_path ?? null,
-      providers: extractTRProviders(details),
+      providers,
       watch_link: extractWatchLink(details),
       seasons: type === "tv" ? extractSeasons(details) : [],
       vote: details.vote_average ?? null,
@@ -55,11 +58,13 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ title: upserted as Title });
+    const platforms = await buildPlatformInfo(providers);
+    return NextResponse.json({ title: { ...upserted, platforms } as Title });
   } catch (err) {
     console.error("api/title failed", err);
     if (cached) {
-      return NextResponse.json({ title: cached as Title, stale: true });
+      const platforms = await buildPlatformInfo(cached.providers);
+      return NextResponse.json({ title: { ...cached, platforms } as Title, stale: true });
     }
     const message =
       err instanceof Error

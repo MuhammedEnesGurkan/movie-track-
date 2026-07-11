@@ -26,10 +26,33 @@ export type Title = {
   poster_path: string | null;
   backdrop_path: string | null;
   providers: Providers;
+  platforms: PlatformInfo[];
   watch_link: string | null;
   seasons: TitleSeason[];
   vote: number | null;
   cached_at: string;
+};
+
+// Fiyat bilgisi TMDB'den değil, streaming_platforms tablosundan gelir.
+export type PlatformType = "subscription" | "rent" | "buy";
+
+export type PlatformInfo = {
+  provider_id: number;
+  name: string;
+  logo_path: string | null;
+  type: PlatformType;
+  monthly_price: number | null;
+  currency: string | null;
+};
+
+export type StreamingPlatform = {
+  id: string;
+  tmdb_provider_id: number;
+  name: string;
+  logo_path: string | null;
+  monthly_price: number | null;
+  currency: string;
+  updated_at: string;
 };
 
 export type ProgressStatus = "watching" | "completed" | "plan";

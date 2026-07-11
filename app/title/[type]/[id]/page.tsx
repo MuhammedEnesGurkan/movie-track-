@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Search, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import EpisodeGrid from "@/components/EpisodeGrid";
-import ProviderButton from "@/components/ProviderButton";
+import PlatformCard from "@/components/PlatformCard";
 import WatchReturnPrompt from "@/components/WatchReturnPrompt";
 import { useToast } from "@/components/ToastProvider";
 import type { ProgressStatus, Title, TitleSeason, TitleType, WatchedProgress } from "@/lib/types";
@@ -306,7 +306,7 @@ export default function TitleDetailPage() {
         )}
 
         <ProvidersSection
-          providers={title.providers}
+          platforms={title.platforms}
           watchLink={title.watch_link}
           title={title.title}
           tmdbId={Number(id)}
@@ -344,7 +344,7 @@ export default function TitleDetailPage() {
           </div>
 
           <ProvidersSection
-            providers={title.providers}
+            platforms={title.platforms}
             watchLink={title.watch_link}
             title={title.title}
             tmdbId={Number(id)}
@@ -447,33 +447,30 @@ export default function TitleDetailPage() {
 }
 
 function ProvidersSection({
-  providers,
+  platforms,
   watchLink,
   title,
   tmdbId,
   type,
   trackVisit,
 }: {
-  providers: Title["providers"];
+  platforms: Title["platforms"];
   watchLink: string | null;
   title: string;
   tmdbId: number;
   type: TitleType;
   trackVisit: boolean;
 }) {
-  const all = [...(providers.flatrate ?? []), ...(providers.rent ?? []), ...(providers.buy ?? [])];
-  const unique = Array.from(new Map(all.map((p) => [p.provider_id, p])).values());
-
-  if (unique.length === 0) return null;
+  if (platforms.length === 0) return null;
 
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-sm font-semibold text-white/80">Nereden İzlenir</h2>
-      <div className="flex flex-wrap gap-3">
-        {unique.map((p) => (
-          <ProviderButton
+      <div className="flex flex-col gap-2">
+        {platforms.map((p) => (
+          <PlatformCard
             key={p.provider_id}
-            provider={p}
+            platform={p}
             title={title}
             tmdbId={tmdbId}
             type={type}
