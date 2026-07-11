@@ -3,5 +3,13 @@
 @tailwind utilities;
 
 body {
-  background-color: #0d1117;
+  background-color: #120f0e;
+}
+
+.ticket-stub {
+  position: relative;
+  clip-path: polygon(
+    0 0, 100% 0, 100% 100%, 0 100%,
+    0 60%, 6px 55%, 0 50%, 6px 45%, 0 40%
+  );
 }

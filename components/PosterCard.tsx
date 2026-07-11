@@ -25,7 +25,7 @@ export default function PosterCard({
 
   return (
     <Link href={`/title/${type}/${tmdbId}`} className="flex w-28 shrink-0 flex-col gap-1.5 lg:w-full">
-      <div className="relative aspect-[2/3] w-28 overflow-hidden rounded-xl border border-white/5 bg-card transition lg:w-full lg:hover:scale-105 lg:hover:ring-1 lg:hover:ring-white/10">
+      <div className="relative aspect-[2/3] w-28 overflow-hidden rounded-xl border border-white/5 bg-card transition duration-300 lg:w-full lg:hover:-translate-y-1 lg:hover:border-accent/60 lg:hover:shadow-[0_0_18px_-2px_theme(colors.accent)]">
         {posterPath ? (
           <Image
             src={`${TMDB_IMG}/w342${posterPath}`}

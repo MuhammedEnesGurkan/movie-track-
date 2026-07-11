@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import EpisodeGrid from "@/components/EpisodeGrid";
 import ProviderButton from "@/components/ProviderButton";
 import WatchReturnPrompt from "@/components/WatchReturnPrompt";
+import { useToast } from "@/components/ToastProvider";
 import type { ProgressStatus, Title, TitleSeason, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
@@ -18,6 +19,12 @@ const STATUS_OPTIONS: { value: ProgressStatus; label: string }[] = [
   { value: "plan", label: "İzleyeceğim" },
   { value: "completed", label: "Bitirdim" },
 ];
+
+const STATUS_TOAST_LABEL: Record<ProgressStatus, string> = {
+  watching: "İZLİYORSUN",
+  plan: "LİSTEDE",
+  completed: "BİTİRDİN",
+};
 
 function getTotalEpisodes(seasons: TitleSeason[]) {
   return seasons
@@ -53,13 +60,7 @@ export default function TitleDetailPage() {
   const [activeSeason, setActiveSeason] = useState<number | null>(null);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2500);
-    return () => clearTimeout(t);
-  }, [toast]);
+  const showToast = useToast();
 
   useEffect(() => {
     (async () => {
@@ -116,6 +117,7 @@ export default function TitleDetailPage() {
     }
     setStatus(next);
     persist(next, progress);
+    showToast({ label: STATUS_TOAST_LABEL[next], message: title?.title ?? "" });
   }
 
   function confirmCompleteAll() {
@@ -125,6 +127,7 @@ export default function TitleDetailPage() {
     setStatus("completed");
     persist("completed", fullProgress);
     setShowCompleteConfirm(false);
+    showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
   }
 
   function handleToggleEpisode(seasonNumber: number, episodeNumber: number) {
@@ -163,7 +166,7 @@ export default function TitleDetailPage() {
     setProgress(nextProgress);
     setStatus(nextStatus);
     persist(nextStatus, nextProgress);
-    if (justCompleted) setToast("Diziyi bitirdin 🎉");
+    if (justCompleted && title) showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
   }
 
   function handleConfirmEpisodeWatched(seasonNumber: number, episodeNumber: number) {
@@ -184,12 +187,13 @@ export default function TitleDetailPage() {
     setProgress(nextProgress);
     setStatus(nextStatus);
     persist(nextStatus, nextProgress);
-    if (isNowComplete) setToast("Diziyi bitirdin 🎉");
+    if (isNowComplete && title) showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
   }
 
   function handleConfirmMovieWatched() {
     setStatus("completed");
     persist("completed", progress);
+    if (title) showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
   }
 
   async function handleRemoveFromLibrary() {
@@ -198,6 +202,7 @@ export default function TitleDetailPage() {
     setStatus(null);
     setProgress({});
     setShowRemoveConfirm(false);
+    if (title) showToast({ label: "ÇIKARILDI", message: title.title, tone: "red" });
   }
 
   if (loading) {
@@ -285,7 +290,7 @@ export default function TitleDetailPage() {
 
       {/* Mobil/tablet: mevcut tek kolon akış (birebir korunuyor) */}
       <div className="relative px-4 pt-4 md:px-6 lg:hidden">
-        <h1 className="text-xl font-bold">{title.title}</h1>
+        <h1 className="font-display text-3xl tracking-wide">{title.title}</h1>
         <p className="mt-1 flex items-center gap-2 text-sm text-white/70">
           <span>{type === "movie" ? "Film" : "Dizi"}</span>
           {title.vote != null && (
@@ -355,7 +360,7 @@ export default function TitleDetailPage() {
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold">{title.title}</h1>
+          <h1 className="font-display text-4xl tracking-wide">{title.title}</h1>
           <p className="mt-1 flex items-center gap-2 text-sm text-white/70">
             <span>{type === "movie" ? "Film" : "Dizi"}</span>
             {title.vote != null && (
@@ -434,14 +439,6 @@ export default function TitleDetailPage() {
                 Vazgeç
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 lg:bottom-8">
-          <div className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-black">
-            {toast}
           </div>
         </div>
       )}

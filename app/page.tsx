@@ -29,6 +29,7 @@ function HomeContent() {
 
   const [trending, setTrending] = useState<SearchResult[]>([]);
   const [recommended, setRecommended] = useState<SearchResult[]>([]);
+  const [recommendedBecause, setRecommendedBecause] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get("focus") === "search") {
@@ -75,13 +76,14 @@ function HomeContent() {
 
       const { data: watchingRow } = await supabase
         .from("user_progress")
-        .select("tmdb_id, titles(type)")
+        .select("tmdb_id, titles(type, title)")
         .eq("status", "watching")
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       const watchingType = (watchingRow as any)?.titles?.type;
+      const watchingTitle = (watchingRow as any)?.titles?.title as string | undefined;
       if (!watchingRow || !watchingType) {
         setRecommended(trendResults);
         return;
@@ -91,7 +93,9 @@ function HomeContent() {
         `/api/trending?similarTo=${watchingRow.tmdb_id}&type=${watchingType}`
       ).then((r) => r.json());
       const simResults: SearchResult[] = simData.results ?? [];
-      setRecommended(simResults.length ? simResults : trendResults);
+      const hasSimResults = simResults.length > 0;
+      setRecommended(hasSimResults ? simResults : trendResults);
+      setRecommendedBecause(hasSimResults && watchingTitle ? watchingTitle : null);
     })();
   }, []);
 
@@ -147,8 +151,8 @@ function HomeContent() {
           ))}
         </div>
       ) : (
-        <div className="mt-6 flex flex-col gap-6">
-          <Rail title="Senin İçin" items={recommended} />
+        <div className="mt-8 flex flex-col gap-8">
+          <Rail title="Senin İçin" caption={recommendedBecause ? `${recommendedBecause} izlediğin için` : undefined} items={recommended} />
           <Rail title="Trend" items={trending} />
         </div>
       )}
@@ -156,11 +160,14 @@ function HomeContent() {
   );
 }
 
-function Rail({ title, items }: { title: string; items: SearchResult[] }) {
+function Rail({ title, caption, items }: { title: string; caption?: string; items: SearchResult[] }) {
   if (!items.length) return null;
   return (
     <section>
-      <h2 className="mb-2 text-sm font-semibold text-white/80">{title}</h2>
+      <div className="mb-3 flex items-baseline gap-3 border-b border-accent/20 pb-2">
+        <h2 className="font-display text-2xl tracking-wide text-accent">{title}</h2>
+        {caption && <p className="truncate text-xs text-white/40">{caption}</p>}
+      </div>
       <div className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible xl:grid-cols-7">
         {items.map((item) => (
           <PosterCard

@@ -15,7 +15,7 @@ export default function Sidebar() {
         <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-bg text-accent">
           <Clapperboard size={18} />
         </div>
-        <span className="text-sm font-bold">WatchList</span>
+        <span className="font-display text-lg tracking-wide">WatchList</span>
       </div>
 
       <nav className="flex flex-col gap-1 px-3">

@@ -8,12 +8,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#0d1117",
-        card: "#161b22",
-        accent: "#22d3ee",
+        bg: "#120f0e",
+        card: "#1f1815",
+        accent: "#f2a93b",
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
+        display: ["var(--font-display)", "sans-serif"],
+      },
+      keyframes: {
+        "ticket-in": {
+          "0%": { transform: "translateY(120%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+      },
+      animation: {
+        "ticket-in": "ticket-in 280ms cubic-bezier(0.22, 1, 0.36, 1)",
       },
     },
   },

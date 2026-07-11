@@ -9,7 +9,7 @@ export default function TabBar() {
   const searchParams = useSearchParams();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/5 bg-[#0d1117]/95 backdrop-blur lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/5 bg-bg/95 backdrop-blur lg:hidden">
       <div className="mx-auto flex max-w-md justify-around">
         {NAV_ITEMS.map(({ key, href, label, icon: Icon }) => {
           const active = isNavItemActive(pathname, searchParams, key);
