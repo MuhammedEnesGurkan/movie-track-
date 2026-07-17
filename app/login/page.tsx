@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Clapperboard, Eye, EyeOff, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { setRemember, touchActivity } from "@/lib/sessionTimeout";
 
 type Mode = "login" | "signup";
 
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   function validate(): string | null {
     if (!EMAIL_REGEX.test(email.trim())) return "Geçerli bir e-posta adresi gir";
@@ -62,6 +64,8 @@ export default function LoginPage() {
         setError(translateError(error.message));
         return;
       }
+      setRemember(rememberMe);
+      touchActivity();
       router.push("/");
       router.refresh();
       return;
@@ -81,6 +85,8 @@ export default function LoginPage() {
       await supabase.from("profiles").upsert({ user_id: data.user.id });
     }
 
+    setRemember(rememberMe);
+    touchActivity();
     router.push("/onboarding");
     router.refresh();
   }
@@ -164,15 +170,27 @@ export default function LoginPage() {
           </div>
         )}
 
-        {mode === "login" && (
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            className="mt-2 text-xs text-white/40 underline"
-          >
-            Şifremi unuttum
-          </button>
-        )}
+        <div className="mt-3 flex items-center justify-between">
+          <label className="flex items-center gap-2 text-xs text-white/60">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-card accent-accent"
+            />
+            Beni Hatırla
+          </label>
+
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-xs text-white/40 underline"
+            >
+              Şifremi unuttum
+            </button>
+          )}
+        </div>
 
         {resetSent && (
           <p className="mt-3 text-center text-xs text-accent">
