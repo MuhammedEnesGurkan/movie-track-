@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import type { ProgressStatus, TitleType, WatchedProgress } from "@/lib/types";
+import type { ProgressStatus, Providers, StreamingPlatform, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
 
@@ -16,6 +16,7 @@ type LibraryItem = {
   progress: WatchedProgress;
   title: string;
   poster_path: string | null;
+  providers: Providers;
 };
 
 const TABS: { value: ProgressStatus; label: string }[] = [
@@ -34,15 +35,18 @@ export default function ProfilePage() {
 
 function ProfileContent() {
   const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
 
   const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ProgressStatus>("watching");
+  const [platforms, setPlatforms] = useState<StreamingPlatform[]>([]);
+  const [subscribedIds, setSubscribedIds] = useState<number[]>([]);
 
   useEffect(() => {
     (async () => {
-      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -52,10 +56,11 @@ function ProfileContent() {
         return;
       }
       setEmail(user.email ?? null);
+      setUserId(user.id);
 
       const { data } = await supabase
         .from("user_progress")
-        .select("tmdb_id, status, progress, titles(title, poster_path, type)")
+        .select("tmdb_id, status, progress, titles(title, poster_path, type, providers)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
@@ -66,11 +71,35 @@ function ProfileContent() {
         title: row.titles?.title ?? "",
         poster_path: row.titles?.poster_path ?? null,
         type: row.titles?.type ?? "tv",
+        providers: row.titles?.providers ?? {},
       }));
       setItems(rows);
+
+      const { data: platformRows } = await supabase
+        .from("streaming_platforms")
+        .select("*")
+        .order("name");
+      setPlatforms(platformRows ?? []);
+
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("subscribed_platforms")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setSubscribedIds(profileRow?.subscribed_platforms ?? []);
+
       setLoading(false);
     })();
-  }, []);
+  }, [supabase]);
+
+  async function toggleSubscription(providerId: number) {
+    if (!userId) return;
+    const next = subscribedIds.includes(providerId)
+      ? subscribedIds.filter((id) => id !== providerId)
+      : [...subscribedIds, providerId];
+    setSubscribedIds(next);
+    await supabase.from("profiles").upsert({ user_id: userId, subscribed_platforms: next });
+  }
 
   useEffect(() => {
     if (searchParams.get("view") === "library") {
@@ -105,6 +134,17 @@ function ProfileContent() {
   const filtered = items.filter((i) => i.status === activeTab);
   const initials = email.slice(0, 2).toUpperCase();
 
+  const activeProviderIds = new Set<number>();
+  items
+    .filter((i) => i.status === "watching" || i.status === "plan")
+    .forEach((i) => {
+      (i.providers.flatrate ?? []).forEach((p) => activeProviderIds.add(p.provider_id));
+    });
+
+  const wastedPlatforms = platforms.filter(
+    (p) => subscribedIds.includes(p.tmdb_provider_id) && !activeProviderIds.has(p.tmdb_provider_id)
+  );
+
   return (
     <div className="px-4 pb-6 pt-6 md:px-6 lg:px-8">
       <div className="mx-auto max-w-2xl">
@@ -129,6 +169,45 @@ function ProfileContent() {
             <p className="text-xs text-white/50">İzlenen Bölüm</p>
           </div>
         </div>
+
+        {wastedPlatforms.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+            <p className="text-sm font-semibold text-red-300">Boşa giden abonelik</p>
+            <ul className="mt-1 space-y-0.5 text-xs text-red-200/80">
+              {wastedPlatforms.map((p) => (
+                <li key={p.id}>
+                  {p.name} — takip listende hiçbir şey yok
+                  {p.monthly_price != null &&
+                    ` (₺${Number(p.monthly_price).toFixed(2)}/ay)`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {platforms.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-semibold text-white/50">Aboneliklerim</p>
+            <div className="flex flex-wrap gap-2">
+              {platforms.map((p) => {
+                const active = subscribedIds.includes(p.tmdb_provider_id);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => toggleSubscription(p.tmdb_provider_id)}
+                    className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                      active
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-white/10 text-white/50"
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div id="library" className="mt-6">
