@@ -7,9 +7,29 @@ import Image from "next/image";
 import { Search as SearchIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import PosterCard from "@/components/PosterCard";
-import type { SearchResult } from "@/lib/types";
+import type { SearchResult, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
+
+type ContinueItem = {
+  tmdb_id: number;
+  type: TitleType;
+  title: string;
+  poster_path: string | null;
+  summary: string | null;
+};
+
+function getProgressSummary(type: TitleType, progress: WatchedProgress): string | null {
+  if (type !== "tv") return null;
+  const seasonNumbers = Object.keys(progress)
+    .map(Number)
+    .filter((s) => (progress[String(s)]?.length ?? 0) > 0);
+  if (seasonNumbers.length === 0) return null;
+  const lastSeason = Math.max(...seasonNumbers);
+  const episodes = progress[String(lastSeason)] ?? [];
+  const lastEpisode = Math.max(...episodes);
+  return `S${lastSeason}B${lastEpisode}'te kaldın`;
+}
 
 export default function HomePage() {
   return (
@@ -30,6 +50,7 @@ function HomeContent() {
   const [trending, setTrending] = useState<SearchResult[]>([]);
   const [recommended, setRecommended] = useState<SearchResult[]>([]);
   const [recommendedBecause, setRecommendedBecause] = useState<string | null>(null);
+  const [continueWatching, setContinueWatching] = useState<ContinueItem[]>([]);
 
   useEffect(() => {
     if (searchParams.get("focus") === "search") {
@@ -73,6 +94,23 @@ function HomeContent() {
         setRecommended(trendResults);
         return;
       }
+
+      const { data: watchingRows } = await supabase
+        .from("user_progress")
+        .select("tmdb_id, progress, titles(type, title, poster_path)")
+        .eq("status", "watching")
+        .order("updated_at", { ascending: false })
+        .limit(10);
+
+      setContinueWatching(
+        (watchingRows ?? []).map((row: any) => ({
+          tmdb_id: row.tmdb_id,
+          type: (row.titles?.type ?? "tv") as TitleType,
+          title: row.titles?.title ?? "",
+          poster_path: row.titles?.poster_path ?? null,
+          summary: getProgressSummary(row.titles?.type ?? "tv", row.progress ?? {}),
+        }))
+      );
 
       const { data: watchingRow } = await supabase
         .from("user_progress")
@@ -152,6 +190,25 @@ function HomeContent() {
         </div>
       ) : (
         <div className="mt-8 flex flex-col gap-8">
+          {continueWatching.length > 0 && (
+            <section>
+              <div className="mb-3 flex items-baseline gap-3 border-b border-accent/20 pb-2">
+                <h2 className="font-display text-2xl tracking-wide text-accent">Kaldığın Yer</h2>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible xl:grid-cols-7">
+                {continueWatching.map((item) => (
+                  <PosterCard
+                    key={`${item.type}-${item.tmdb_id}`}
+                    tmdbId={item.tmdb_id}
+                    type={item.type}
+                    title={item.title}
+                    posterPath={item.poster_path}
+                    subtitle={item.summary ?? undefined}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
           <Rail title="Senin İçin" caption={recommendedBecause ? `${recommendedBecause} izlediğin için` : undefined} items={recommended} />
           <Rail title="Trend" items={trending} />
         </div>
