@@ -151,11 +151,19 @@ function ProfileContent() {
   return (
     <div className="px-4 pb-6 pt-6 md:px-6 lg:px-8">
       <div className="mx-auto max-w-2xl">
-        <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/5 bg-card text-lg font-semibold text-accent">
-            {initials}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/5 bg-card text-lg font-semibold text-accent">
+              {initials}
+            </div>
+            <p className="truncate text-sm font-semibold">{email}</p>
           </div>
-          <p className="truncate text-sm font-semibold">{email}</p>
+          <Link
+            href="/wrapped"
+            className="shrink-0 rounded-full border border-accent/30 px-3 py-1.5 text-xs font-semibold text-accent"
+          >
+            İzleme Özetin
+          </Link>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-3">
