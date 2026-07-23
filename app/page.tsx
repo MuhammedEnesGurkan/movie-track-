@@ -7,7 +7,11 @@ import Image from "next/image";
 import { Search as SearchIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import PosterCard from "@/components/PosterCard";
-import type { SearchResult, TitleType, WatchedProgress } from "@/lib/types";
+import ContinueWatchingCard from "@/components/ContinueWatchingCard";
+import { useToast } from "@/components/ToastProvider";
+import { getNextEpisode } from "@/lib/nextEpisode";
+import { logWatchEvent } from "@/lib/watchEvents";
+import type { SearchResult, TitleSeason, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
 
@@ -17,6 +21,8 @@ type ContinueItem = {
   title: string;
   poster_path: string | null;
   summary: string | null;
+  seasons: TitleSeason[];
+  progress: WatchedProgress;
 };
 
 function getProgressSummary(type: TitleType, progress: WatchedProgress): string | null {
@@ -51,6 +57,9 @@ function HomeContent() {
   const [recommended, setRecommended] = useState<SearchResult[]>([]);
   const [recommendedBecause, setRecommendedBecause] = useState<string | null>(null);
   const [continueWatching, setContinueWatching] = useState<ContinueItem[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [markingId, setMarkingId] = useState<number | null>(null);
+  const showToast = useToast();
 
   useEffect(() => {
     if (searchParams.get("focus") === "search") {
@@ -94,10 +103,11 @@ function HomeContent() {
         setRecommended(trendResults);
         return;
       }
+      setUserId(user.id);
 
       const { data: watchingRows } = await supabase
         .from("user_progress")
-        .select("tmdb_id, progress, titles(type, title, poster_path)")
+        .select("tmdb_id, progress, titles(type, title, poster_path, seasons)")
         .eq("status", "watching")
         .order("updated_at", { ascending: false })
         .limit(10);
@@ -109,6 +119,8 @@ function HomeContent() {
           title: row.titles?.title ?? "",
           poster_path: row.titles?.poster_path ?? null,
           summary: getProgressSummary(row.titles?.type ?? "tv", row.progress ?? {}),
+          seasons: row.titles?.seasons ?? [],
+          progress: row.progress ?? {},
         }))
       );
 
@@ -136,6 +148,60 @@ function HomeContent() {
       setRecommendedBecause(hasSimResults && watchingTitle ? watchingTitle : null);
     })();
   }, []);
+
+  async function handleMarkNextEpisode(item: ContinueItem) {
+    if (!userId) return;
+    const next = getNextEpisode(item.seasons, item.progress);
+    if (!next) return;
+
+    setMarkingId(item.tmdb_id);
+    const seasonKey = String(next.season);
+    const current = item.progress[seasonKey] ?? [];
+    const nextProgress = {
+      ...item.progress,
+      [seasonKey]: [...current, next.episode].sort((a, b) => a - b),
+    };
+
+    const totalEpisodes = item.seasons
+      .filter((s) => s.season_number > 0)
+      .reduce((sum, s) => sum + s.episode_count, 0);
+    const totalWatched = Object.values(nextProgress).reduce((sum, eps) => sum + eps.length, 0);
+    const isNowComplete = totalEpisodes > 0 && totalWatched >= totalEpisodes;
+    const nextStatus = isNowComplete ? "completed" : "watching";
+
+    const supabase = createClient();
+    await supabase.from("user_progress").upsert({
+      user_id: userId,
+      tmdb_id: item.tmdb_id,
+      type: item.type,
+      status: nextStatus,
+      progress: nextProgress,
+      updated_at: new Date().toISOString(),
+    });
+    await logWatchEvent(supabase, {
+      userId,
+      type: item.type,
+      tmdbId: item.tmdb_id,
+      eventType: "episode",
+      seasonNumber: next.season,
+      episodeNumber: next.episode,
+    });
+
+    setContinueWatching((prev) =>
+      isNowComplete
+        ? prev.filter((i) => i.tmdb_id !== item.tmdb_id)
+        : prev.map((i) =>
+            i.tmdb_id === item.tmdb_id
+              ? { ...i, progress: nextProgress, summary: getProgressSummary(i.type, nextProgress) }
+              : i
+          )
+    );
+    setMarkingId(null);
+    showToast({
+      label: isNowComplete ? "BİTİRDİN" : "İZLENDİ",
+      message: `${item.title} — S${next.season}B${next.episode}`,
+    });
+  }
 
   const showSearch = query.trim().length > 0;
 
@@ -197,13 +263,16 @@ function HomeContent() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:gap-4 lg:overflow-visible xl:grid-cols-7">
                 {continueWatching.map((item) => (
-                  <PosterCard
+                  <ContinueWatchingCard
                     key={`${item.type}-${item.tmdb_id}`}
                     tmdbId={item.tmdb_id}
                     type={item.type}
                     title={item.title}
                     posterPath={item.poster_path}
                     subtitle={item.summary ?? undefined}
+                    nextEpisode={item.type === "tv" ? getNextEpisode(item.seasons, item.progress) : null}
+                    marking={markingId === item.tmdb_id}
+                    onMarkWatched={() => handleMarkNextEpisode(item)}
                   />
                 ))}
               </div>
