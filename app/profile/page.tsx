@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { ProgressStatus, Providers, StreamingPlatform, TitleType, WatchedProgress } from "@/lib/types";
 
@@ -17,6 +18,7 @@ type LibraryItem = {
   title: string;
   poster_path: string | null;
   providers: Providers;
+  rating: number | null;
 };
 
 const TABS: { value: ProgressStatus; label: string }[] = [
@@ -60,7 +62,7 @@ function ProfileContent() {
 
       const { data } = await supabase
         .from("user_progress")
-        .select("tmdb_id, status, progress, titles(title, poster_path, type, providers)")
+        .select("tmdb_id, status, progress, rating, titles(title, poster_path, type, providers)")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
@@ -72,6 +74,7 @@ function ProfileContent() {
         poster_path: row.titles?.poster_path ?? null,
         type: row.titles?.type ?? "tv",
         providers: row.titles?.providers ?? {},
+        rating: row.rating ?? null,
       }));
       setItems(rows);
 
@@ -255,6 +258,12 @@ function LibraryCard({ item }: { item: LibraryItem }) {
         ) : (
           <div className="flex h-full items-center justify-center p-2 text-center text-xs text-white/30">
             {item.title}
+          </div>
+        )}
+        {item.rating != null && (
+          <div className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+            <Star size={10} className="fill-accent text-accent" />
+            {item.rating}
           </div>
         )}
       </div>

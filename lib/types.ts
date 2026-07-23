@@ -67,6 +67,8 @@ export type UserProgress = {
   tmdb_id: number;
   status: ProgressStatus;
   progress: WatchedProgress;
+  rating: number | null;
+  note: string | null;
   updated_at: string;
 };
 

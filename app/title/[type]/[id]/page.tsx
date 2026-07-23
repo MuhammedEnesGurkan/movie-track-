@@ -60,6 +60,8 @@ export default function TitleDetailPage() {
   const [activeSeason, setActiveSeason] = useState<number | null>(null);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [rating, setRating] = useState<number | null>(null);
+  const [note, setNote] = useState("");
   const showToast = useToast();
 
   useEffect(() => {
@@ -84,13 +86,15 @@ export default function TitleDetailPage() {
 
       const { data } = await supabase
         .from("user_progress")
-        .select("status, progress")
+        .select("status, progress, rating, note")
         .eq("tmdb_id", Number(id))
         .maybeSingle();
 
       if (data) {
         setStatus(data.status);
         setProgress(data.progress ?? {});
+        setRating(data.rating ?? null);
+        setNote(data.note ?? "");
       }
     })();
   }, [id]);
@@ -205,6 +209,36 @@ export default function TitleDetailPage() {
     if (title) showToast({ label: "ÇIKARILDI", message: title.title, tone: "red" });
   }
 
+  async function handleRate(nextRating: number) {
+    if (!userId) {
+      router.push("/login");
+      return;
+    }
+    setRating(nextRating);
+    await supabase.from("user_progress").upsert({
+      user_id: userId,
+      tmdb_id: Number(id),
+      status: status ?? "completed",
+      progress,
+      rating: nextRating,
+      note: note || null,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  async function handleSaveNote() {
+    if (!userId) return;
+    await supabase.from("user_progress").upsert({
+      user_id: userId,
+      tmdb_id: Number(id),
+      status: status ?? "completed",
+      progress,
+      rating,
+      note: note || null,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
   if (loading) {
     return <p className="p-6 text-center text-sm text-white/40">Yükleniyor...</p>;
   }
@@ -238,6 +272,30 @@ export default function TitleDetailPage() {
     >
       Kütüphaneden Çıkar
     </button>
+  );
+
+  const ratingSection = status === "completed" && (
+    <div className="mt-4 border-t border-white/10 pt-4">
+      <p className="mb-2 text-xs font-semibold text-white/50">Puanın</p>
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} onClick={() => handleRate(n)} aria-label={`${n} yıldız`}>
+            <Star
+              size={22}
+              className={n <= (rating ?? 0) ? "fill-accent text-accent" : "text-white/20"}
+            />
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onBlur={handleSaveNote}
+        placeholder="Kısa bir not ekle (opsiyonel)"
+        rows={2}
+        className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-bg px-3 py-2 text-sm text-white outline-none placeholder:text-white/30"
+      />
+    </div>
   );
 
   const seasonAndEpisodes = (
@@ -320,6 +378,7 @@ export default function TitleDetailPage() {
           {type === "tv" && title.seasons.length > 0 && (
             <div className="mt-4">{seasonAndEpisodes}</div>
           )}
+          {ratingSection}
           {removeButton}
         </section>
       </div>
@@ -355,6 +414,7 @@ export default function TitleDetailPage() {
           <div className="rounded-2xl border border-white/5 bg-card p-4">
             <h2 className="mb-3 text-sm font-semibold text-white/80">Takip Durumu</h2>
             {statusButtons("col")}
+            {ratingSection}
             {removeButton}
           </div>
         </div>
