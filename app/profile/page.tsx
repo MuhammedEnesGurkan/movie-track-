@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { LogOut, Star } from "lucide-react";
+import { LogOut, Search, SlidersHorizontal, Star, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { ProgressStatus, Providers, StreamingPlatform, TitleType, WatchedProgress } from "@/lib/types";
 
@@ -20,6 +20,22 @@ type LibraryItem = {
   providers: Providers;
   rating: number | null;
 };
+
+function formatPrice(price: number | null, currency: string | null) {
+  if (price == null) return null;
+  const amount = price.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return currency === "TRY" || !currency ? `₺${amount}` : `${amount} ${currency}`;
+}
+
+function platformLogoSrc(logoPath: string | null) {
+  if (!logoPath) return null;
+  if (logoPath.startsWith("http")) {
+    // next/image yalnızca image.tmdb.org için yapılandırılmış; admin'in
+    // girdiği başka bir domain olabileceğinden onu düz <img> ile çiziyoruz.
+    return { src: logoPath, plain: !logoPath.startsWith(TMDB_IMG) };
+  }
+  return { src: `${TMDB_IMG}/w92${logoPath}`, plain: false };
+}
 
 const TABS: { value: ProgressStatus; label: string }[] = [
   { value: "watching", label: "İzliyorum" },
@@ -154,6 +170,7 @@ function ProfileContent() {
   const wastedPlatforms = platforms.filter(
     (p) => subscribedIds.includes(p.tmdb_provider_id) && !activeProviderIds.has(p.tmdb_provider_id)
   );
+  const totalWaste = wastedPlatforms.reduce((sum, p) => sum + (p.monthly_price ?? 0), 0);
 
   return (
     <div className="px-4 pb-6 pt-6 md:px-6 lg:px-8">
@@ -198,22 +215,85 @@ function ProfileContent() {
         </div>
 
         {wastedPlatforms.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
-            <p className="text-sm font-semibold text-red-300">Boşa giden abonelik</p>
-            <ul className="mt-1 space-y-0.5 text-xs text-red-200/80">
-              {wastedPlatforms.map((p) => (
-                <li key={p.id}>
-                  {p.name} — takip listende hiçbir şey yok
-                  {p.monthly_price != null &&
-                    ` (₺${Number(p.monthly_price).toFixed(2)}/ay)`}
-                </li>
-              ))}
-            </ul>
+          <div className="mt-4 rounded-2xl border border-white/5 bg-card p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                  <TriangleAlert size={14} />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Boşa giden abonelik</p>
+                  <p className="text-xs text-white/40">
+                    {wastedPlatforms.length === 1
+                      ? "Takip listende karşılığı yok"
+                      : `${wastedPlatforms.length} abonelikte takip listende karşılığı yok`}
+                  </p>
+                </div>
+              </div>
+              {totalWaste > 0 && (
+                <div className="shrink-0 rounded-lg bg-red-500/10 px-2.5 py-1 text-right">
+                  <p className="text-xs font-semibold text-red-300">{formatPrice(totalWaste, "TRY")}</p>
+                  <p className="text-[10px] text-red-300/60">/ay</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 flex flex-col gap-1.5">
+              {wastedPlatforms.map((p) => {
+                const logoSrc = platformLogoSrc(p.logo_path);
+                const price = formatPrice(p.monthly_price, p.currency);
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2"
+                  >
+                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/30">
+                      {logoSrc?.plain ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoSrc.src} alt={p.name} className="h-full w-full object-cover" />
+                      ) : logoSrc ? (
+                        <Image src={logoSrc.src} alt={p.name} fill sizes="36px" className="object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[10px] font-semibold text-white/40">
+                          {p.name.slice(0, 1)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-white">{p.name}</p>
+                      <p className="truncate text-[11px] text-white/40">Takip listende hiçbir şey yok</p>
+                    </div>
+                    {price && (
+                      <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-medium text-white/60">
+                        {price}/ay
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <Link
+                href="/?focus=search"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25"
+              >
+                <Search size={12} />
+                İçerik bul
+              </Link>
+              <a
+                href="#aboneliklerim"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25"
+              >
+                <SlidersHorizontal size={12} />
+                Abonelikleri düzenle
+              </a>
+            </div>
           </div>
         )}
 
         {platforms.length > 0 && (
-          <div className="mt-4">
+          <div id="aboneliklerim" className="mt-4 scroll-mt-6">
             <p className="mb-2 text-xs font-semibold text-white/50">Aboneliklerim</p>
             <div className="flex flex-wrap gap-2">
               {platforms.map((p) => {
