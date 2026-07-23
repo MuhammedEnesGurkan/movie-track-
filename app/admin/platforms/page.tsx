@@ -13,6 +13,7 @@ export default function AdminPlatformsPage() {
 
   const [rows, setRows] = useState<StreamingPlatform[]>([]);
   const [loading, setLoading] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
 
   async function load() {
@@ -23,11 +24,19 @@ export default function AdminPlatformsPage() {
       router.push("/login");
       return;
     }
-    const { data } = await supabase
-      .from("streaming_platforms")
-      .select("*")
-      .order("name");
-    setRows(data ?? []);
+
+    const res = await fetch("/api/admin/platforms");
+    if (res.status === 401) {
+      router.push("/login");
+      return;
+    }
+    if (res.status === 403) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
+    const { platforms } = await res.json();
+    setRows(platforms ?? []);
     setLoading(false);
   }
 
@@ -40,32 +49,31 @@ export default function AdminPlatformsPage() {
   }
 
   async function saveRow(row: StreamingPlatform) {
-    await supabase
-      .from("streaming_platforms")
-      .update({
+    await fetch("/api/admin/platforms", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: row.id,
         name: row.name,
         logo_path: row.logo_path,
-        monthly_price: row.monthly_price === null ? null : Number(row.monthly_price),
+        monthly_price: row.monthly_price,
         currency: row.currency,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", row.id);
+      }),
+    });
     load();
   }
 
   async function deleteRow(id: string) {
-    await supabase.from("streaming_platforms").delete().eq("id", id);
+    await fetch(`/api/admin/platforms?id=${id}`, { method: "DELETE" });
     load();
   }
 
   async function addPlatform() {
     if (!draft.tmdb_provider_id || !draft.name) return;
-    await supabase.from("streaming_platforms").insert({
-      tmdb_provider_id: Number(draft.tmdb_provider_id),
-      name: draft.name,
-      logo_path: draft.logo_path || null,
-      monthly_price: draft.monthly_price ? Number(draft.monthly_price) : null,
-      currency: draft.currency || "TRY",
+    await fetch("/api/admin/platforms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
     });
     setDraft(EMPTY_DRAFT);
     load();
@@ -73,6 +81,15 @@ export default function AdminPlatformsPage() {
 
   if (loading) {
     return <p className="p-6 text-center text-sm text-white/40">Yükleniyor...</p>;
+  }
+
+  if (forbidden) {
+    return (
+      <main className="px-4 pt-6 md:px-6 lg:px-8">
+        <h1 className="font-display text-3xl tracking-wide text-accent">Erişim yok</h1>
+        <p className="mt-2 text-sm text-white/50">Bu sayfa yalnızca yöneticiler içindir.</p>
+      </main>
+    );
   }
 
   return (

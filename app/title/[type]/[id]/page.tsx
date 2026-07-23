@@ -88,6 +88,7 @@ export default function TitleDetailPage() {
         .from("user_progress")
         .select("status, progress, rating, note")
         .eq("tmdb_id", Number(id))
+        .eq("type", type)
         .maybeSingle();
 
       if (data) {
@@ -104,6 +105,7 @@ export default function TitleDetailPage() {
     await supabase.from("user_progress").upsert({
       user_id: userId,
       tmdb_id: Number(id),
+      type,
       status: nextStatus,
       progress: nextProgress,
       updated_at: new Date().toISOString(),
@@ -202,7 +204,12 @@ export default function TitleDetailPage() {
 
   async function handleRemoveFromLibrary() {
     if (!userId) return;
-    await supabase.from("user_progress").delete().eq("user_id", userId).eq("tmdb_id", Number(id));
+    await supabase
+      .from("user_progress")
+      .delete()
+      .eq("user_id", userId)
+      .eq("tmdb_id", Number(id))
+      .eq("type", type);
     setStatus(null);
     setProgress({});
     setShowRemoveConfirm(false);
@@ -218,6 +225,7 @@ export default function TitleDetailPage() {
     await supabase.from("user_progress").upsert({
       user_id: userId,
       tmdb_id: Number(id),
+      type,
       status: status ?? "completed",
       progress,
       rating: nextRating,
@@ -231,6 +239,7 @@ export default function TitleDetailPage() {
     await supabase.from("user_progress").upsert({
       user_id: userId,
       tmdb_id: Number(id),
+      type,
       status: status ?? "completed",
       progress,
       rating,

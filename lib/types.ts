@@ -65,6 +65,7 @@ export type WatchedProgress = {
 export type UserProgress = {
   user_id: string;
   tmdb_id: number;
+  type: TitleType;
   status: ProgressStatus;
   progress: WatchedProgress;
   rating: number | null;
