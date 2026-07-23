@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     .from("titles")
     .select("*")
     .eq("tmdb_id", tmdbId)
+    .eq("type", type)
     .maybeSingle();
 
   if (cached && isFresh(cached.cached_at)) {

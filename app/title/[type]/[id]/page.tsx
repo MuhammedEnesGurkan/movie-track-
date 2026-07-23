@@ -10,6 +10,7 @@ import EpisodeGrid from "@/components/EpisodeGrid";
 import PlatformCard from "@/components/PlatformCard";
 import WatchReturnPrompt from "@/components/WatchReturnPrompt";
 import { useToast } from "@/components/ToastProvider";
+import { logWatchEvent } from "@/lib/watchEvents";
 import type { ProgressStatus, Title, TitleSeason, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
@@ -88,6 +89,7 @@ export default function TitleDetailPage() {
         .from("user_progress")
         .select("status, progress, rating, note")
         .eq("tmdb_id", Number(id))
+        .eq("type", type)
         .maybeSingle();
 
       if (data) {
@@ -104,6 +106,7 @@ export default function TitleDetailPage() {
     await supabase.from("user_progress").upsert({
       user_id: userId,
       tmdb_id: Number(id),
+      type,
       status: nextStatus,
       progress: nextProgress,
       updated_at: new Date().toISOString(),
@@ -121,17 +124,32 @@ export default function TitleDetailPage() {
     }
     setStatus(next);
     persist(next, progress);
+    if (next === "completed" && type === "movie") {
+      logWatchEvent(supabase, { userId, type, tmdbId: Number(id), eventType: "movie" });
+    }
     showToast({ label: STATUS_TOAST_LABEL[next], message: title?.title ?? "" });
   }
 
   function confirmCompleteAll() {
-    if (!title) return;
+    if (!title || !userId) return;
     const fullProgress = buildFullProgress(title.seasons);
     setProgress(fullProgress);
     setStatus("completed");
     persist("completed", fullProgress);
     setShowCompleteConfirm(false);
     showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
+
+    const lastSeasonMeta = title.seasons.filter((s) => s.season_number > 0).at(-1);
+    if (lastSeasonMeta) {
+      logWatchEvent(supabase, {
+        userId,
+        type,
+        tmdbId: Number(id),
+        eventType: "episode",
+        seasonNumber: lastSeasonMeta.season_number,
+        episodeNumber: lastSeasonMeta.episode_count,
+      });
+    }
   }
 
   function handleToggleEpisode(seasonNumber: number, episodeNumber: number) {
@@ -170,11 +188,21 @@ export default function TitleDetailPage() {
     setProgress(nextProgress);
     setStatus(nextStatus);
     persist(nextStatus, nextProgress);
+    if (!wasWatched && userId) {
+      logWatchEvent(supabase, {
+        userId,
+        type,
+        tmdbId: Number(id),
+        eventType: "episode",
+        seasonNumber,
+        episodeNumber,
+      });
+    }
     if (justCompleted && title) showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
   }
 
   function handleConfirmEpisodeWatched(seasonNumber: number, episodeNumber: number) {
-    if (!title) return;
+    if (!title || !userId) return;
 
     const seasonKey = String(seasonNumber);
     const current = progress[seasonKey] ?? [];
@@ -191,18 +219,34 @@ export default function TitleDetailPage() {
     setProgress(nextProgress);
     setStatus(nextStatus);
     persist(nextStatus, nextProgress);
+    logWatchEvent(supabase, {
+      userId,
+      type,
+      tmdbId: Number(id),
+      eventType: "episode",
+      seasonNumber,
+      episodeNumber,
+    });
     if (isNowComplete && title) showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
   }
 
   function handleConfirmMovieWatched() {
     setStatus("completed");
     persist("completed", progress);
+    if (userId) {
+      logWatchEvent(supabase, { userId, type, tmdbId: Number(id), eventType: "movie" });
+    }
     if (title) showToast({ label: STATUS_TOAST_LABEL.completed, message: title.title });
   }
 
   async function handleRemoveFromLibrary() {
     if (!userId) return;
-    await supabase.from("user_progress").delete().eq("user_id", userId).eq("tmdb_id", Number(id));
+    await supabase
+      .from("user_progress")
+      .delete()
+      .eq("user_id", userId)
+      .eq("tmdb_id", Number(id))
+      .eq("type", type);
     setStatus(null);
     setProgress({});
     setShowRemoveConfirm(false);
@@ -218,6 +262,7 @@ export default function TitleDetailPage() {
     await supabase.from("user_progress").upsert({
       user_id: userId,
       tmdb_id: Number(id),
+      type,
       status: status ?? "completed",
       progress,
       rating: nextRating,
@@ -231,6 +276,7 @@ export default function TitleDetailPage() {
     await supabase.from("user_progress").upsert({
       user_id: userId,
       tmdb_id: Number(id),
+      type,
       status: status ?? "completed",
       progress,
       rating,
