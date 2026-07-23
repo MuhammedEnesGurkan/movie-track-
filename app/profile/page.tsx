@@ -1,10 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Star } from "lucide-react";
+import { LogOut, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { ProgressStatus, Providers, StreamingPlatform, TitleType, WatchedProgress } from "@/lib/types";
 
@@ -37,6 +37,7 @@ export default function ProfilePage() {
 
 function ProfileContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   const [email, setEmail] = useState<string | null>(null);
@@ -94,6 +95,12 @@ function ProfileContent() {
       setLoading(false);
     })();
   }, [supabase]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   async function toggleSubscription(providerId: number) {
     if (!userId) return;
@@ -158,12 +165,21 @@ function ProfileContent() {
             </div>
             <p className="truncate text-sm font-semibold">{email}</p>
           </div>
-          <Link
-            href="/wrapped"
-            className="shrink-0 rounded-full border border-accent/30 px-3 py-1.5 text-xs font-semibold text-accent"
-          >
-            İzleme Özetin
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/wrapped"
+              className="rounded-full border border-accent/30 px-3 py-1.5 text-xs font-semibold text-accent"
+            >
+              İzleme Özetin
+            </Link>
+            <button
+              onClick={handleLogout}
+              aria-label="Çıkış yap"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/50 transition hover:border-red-500/40 hover:text-red-400"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-3">

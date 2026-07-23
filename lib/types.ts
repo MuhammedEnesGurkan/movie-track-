@@ -73,6 +73,23 @@ export type UserProgress = {
   updated_at: string;
 };
 
+export type WatchEventType = "movie" | "episode";
+
+export type WatchEvent = {
+  id: string;
+  user_id: string;
+  type: TitleType;
+  tmdb_id: number;
+  event_type: WatchEventType;
+  season_number: number | null;
+  episode_number: number | null;
+  watched_at: string;
+  rating: number | null;
+  note: string | null;
+  rewatch_number: number;
+  created_at: string;
+};
+
 export type SearchResult = {
   tmdb_id: number;
   type: TitleType;
