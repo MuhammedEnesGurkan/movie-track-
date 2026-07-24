@@ -184,10 +184,16 @@ function ProfileContent() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Link
-              href="/wrapped"
-              className="rounded-full border border-accent/30 px-3 py-1.5 text-xs font-semibold text-accent"
+              href="/gunluk"
+              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25"
             >
-              İzleme Özetin
+              Günlük
+            </Link>
+            <Link
+              href="/wrapped"
+              className="rounded-lg border border-accent/30 px-3 py-1.5 text-xs font-semibold text-accent"
+            >
+              Özet
             </Link>
             <button
               onClick={handleLogout}
