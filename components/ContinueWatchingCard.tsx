@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import QuickEpisodeAction from "@/components/QuickEpisodeAction";
 import type { TitleType } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
@@ -47,14 +47,12 @@ export default function ContinueWatchingCard({
       </Link>
       {subtitle && <p className="truncate text-[11px] text-white/40">{subtitle}</p>}
       {nextEpisode && onMarkWatched && (
-        <button
-          onClick={onMarkWatched}
-          disabled={marking}
-          className="flex items-center justify-center gap-1 rounded-lg border border-accent/30 bg-accent/10 py-1 text-[11px] font-medium text-accent transition hover:bg-accent/20 disabled:opacity-50"
-        >
-          <Check size={11} />
-          S{nextEpisode.season}B{nextEpisode.episode}
-        </button>
+        <QuickEpisodeAction
+          season={nextEpisode.season}
+          episode={nextEpisode.episode}
+          onMark={onMarkWatched}
+          loading={marking}
+        />
       )}
     </div>
   );

@@ -96,7 +96,7 @@ export default function AdminPlatformsPage() {
     <main className="px-4 pt-6 md:px-6 lg:px-8">
       <h1 className="font-display text-3xl tracking-wide text-accent">Platform Yönetimi</h1>
       <p className="mt-1 text-sm text-white/50">
-        Buradaki fiyatlar TMDB'den değil bu tablodan gelir. Zam geldiğinde tek satırı güncellemek yeterli.
+        Buradaki fiyatlar TMDB&apos;den değil bu tablodan gelir. Zam geldiğinde tek satırı güncellemek yeterli.
       </p>
 
       <div className="mt-6 flex flex-col gap-2">
