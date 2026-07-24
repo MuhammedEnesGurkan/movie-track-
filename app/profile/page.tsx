@@ -4,8 +4,9 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { LogOut, Search, SlidersHorizontal, Star, TriangleAlert } from "lucide-react";
+import { LogOut, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import SubscriptionSummary from "@/components/SubscriptionSummary";
 import type { ProgressStatus, Providers, StreamingPlatform, TitleType, WatchedProgress } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
@@ -21,20 +22,8 @@ type LibraryItem = {
   rating: number | null;
 };
 
-function formatPrice(price: number | null, currency: string | null) {
-  if (price == null) return null;
-  const amount = price.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return currency === "TRY" || !currency ? `₺${amount}` : `${amount} ${currency}`;
-}
-
-function platformLogoSrc(logoPath: string | null) {
-  if (!logoPath) return null;
-  if (logoPath.startsWith("http")) {
-    // next/image yalnızca image.tmdb.org için yapılandırılmış; admin'in
-    // girdiği başka bir domain olabileceğinden onu düz <img> ile çiziyoruz.
-    return { src: logoPath, plain: !logoPath.startsWith(TMDB_IMG) };
-  }
-  return { src: `${TMDB_IMG}/w92${logoPath}`, plain: false };
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "Beklenmedik bir hata oluştu";
 }
 
 const TABS: { value: ProgressStatus; label: string }[] = [
@@ -60,55 +49,63 @@ function ProfileContent() {
   const [userId, setUserId] = useState<string | null>(null);
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProgressStatus>("watching");
   const [platforms, setPlatforms] = useState<StreamingPlatform[]>([]);
   const [subscribedIds, setSubscribedIds] = useState<number[]>([]);
 
   useEffect(() => {
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (!user) {
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+        setEmail(user.email ?? null);
+        setUserId(user.id);
+
+        const { data, error } = await supabase
+          .from("user_progress")
+          .select("tmdb_id, status, progress, rating, titles(title, poster_path, type, providers)")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false });
+        if (error) throw error;
+
+        const rows: LibraryItem[] = (data ?? []).map((row: any) => ({
+          tmdb_id: row.tmdb_id,
+          status: row.status,
+          progress: row.progress ?? {},
+          title: row.titles?.title ?? "",
+          poster_path: row.titles?.poster_path ?? null,
+          type: row.titles?.type ?? "tv",
+          providers: row.titles?.providers ?? {},
+          rating: row.rating ?? null,
+        }));
+        setItems(rows);
+
+        const { data: platformRows, error: platformError } = await supabase
+          .from("streaming_platforms")
+          .select("*")
+          .order("name");
+        if (platformError) throw platformError;
+        setPlatforms(platformRows ?? []);
+
+        const { data: profileRow, error: profileError } = await supabase
+          .from("profiles")
+          .select("subscribed_platforms")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        setSubscribedIds(profileRow?.subscribed_platforms ?? []);
+      } catch (err) {
+        setLoadError(errorMessage(err));
+      } finally {
         setLoading(false);
-        return;
       }
-      setEmail(user.email ?? null);
-      setUserId(user.id);
-
-      const { data } = await supabase
-        .from("user_progress")
-        .select("tmdb_id, status, progress, rating, titles(title, poster_path, type, providers)")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false });
-
-      const rows: LibraryItem[] = (data ?? []).map((row: any) => ({
-        tmdb_id: row.tmdb_id,
-        status: row.status,
-        progress: row.progress ?? {},
-        title: row.titles?.title ?? "",
-        poster_path: row.titles?.poster_path ?? null,
-        type: row.titles?.type ?? "tv",
-        providers: row.titles?.providers ?? {},
-        rating: row.rating ?? null,
-      }));
-      setItems(rows);
-
-      const { data: platformRows } = await supabase
-        .from("streaming_platforms")
-        .select("*")
-        .order("name");
-      setPlatforms(platformRows ?? []);
-
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("subscribed_platforms")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setSubscribedIds(profileRow?.subscribed_platforms ?? []);
-
-      setLoading(false);
     })();
   }, [supabase]);
 
@@ -137,6 +134,10 @@ function ProfileContent() {
     return <p className="p-6 text-center text-sm text-white/40">Yükleniyor...</p>;
   }
 
+  if (loadError) {
+    return <p className="p-6 text-center text-sm text-red-400">Profil yüklenemedi. {loadError}</p>;
+  }
+
   if (!email) {
     return (
       <div className="flex flex-col items-center gap-3 p-10 text-center">
@@ -160,17 +161,16 @@ function ProfileContent() {
   const filtered = items.filter((i) => i.status === activeTab);
   const initials = email.slice(0, 2).toUpperCase();
 
-  const activeProviderIds = new Set<number>();
+  const usageCountByProvider = new Map<number, number>();
   items
     .filter((i) => i.status === "watching" || i.status === "plan")
     .forEach((i) => {
-      (i.providers.flatrate ?? []).forEach((p) => activeProviderIds.add(p.provider_id));
+      (i.providers.flatrate ?? []).forEach((p) => {
+        usageCountByProvider.set(p.provider_id, (usageCountByProvider.get(p.provider_id) ?? 0) + 1);
+      });
     });
 
-  const wastedPlatforms = platforms.filter(
-    (p) => subscribedIds.includes(p.tmdb_provider_id) && !activeProviderIds.has(p.tmdb_provider_id)
-  );
-  const totalWaste = wastedPlatforms.reduce((sum, p) => sum + (p.monthly_price ?? 0), 0);
+  const subscribedPlatforms = platforms.filter((p) => subscribedIds.includes(p.tmdb_provider_id));
 
   return (
     <div className="px-4 pb-6 pt-6 md:px-6 lg:px-8">
@@ -214,82 +214,13 @@ function ProfileContent() {
           </div>
         </div>
 
-        {wastedPlatforms.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-white/5 bg-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                  <TriangleAlert size={14} />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-white">Boşa giden abonelik</p>
-                  <p className="text-xs text-white/40">
-                    {wastedPlatforms.length === 1
-                      ? "Takip listende karşılığı yok"
-                      : `${wastedPlatforms.length} abonelikte takip listende karşılığı yok`}
-                  </p>
-                </div>
-              </div>
-              {totalWaste > 0 && (
-                <div className="shrink-0 rounded-lg bg-red-500/10 px-2.5 py-1 text-right">
-                  <p className="text-xs font-semibold text-red-300">{formatPrice(totalWaste, "TRY")}</p>
-                  <p className="text-[10px] text-red-300/60">/ay</p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 flex flex-col gap-1.5">
-              {wastedPlatforms.map((p) => {
-                const logoSrc = platformLogoSrc(p.logo_path);
-                const price = formatPrice(p.monthly_price, p.currency);
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-3 py-2"
-                  >
-                    <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/30">
-                      {logoSrc?.plain ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoSrc.src} alt={p.name} className="h-full w-full object-cover" />
-                      ) : logoSrc ? (
-                        <Image src={logoSrc.src} alt={p.name} fill sizes="36px" className="object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-[10px] font-semibold text-white/40">
-                          {p.name.slice(0, 1)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">{p.name}</p>
-                      <p className="truncate text-[11px] text-white/40">Takip listende hiçbir şey yok</p>
-                    </div>
-                    {price && (
-                      <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-medium text-white/60">
-                        {price}/ay
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-3 flex gap-2">
-              <Link
-                href="/?focus=search"
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25"
-              >
-                <Search size={12} />
-                İçerik bul
-              </Link>
-              <a
-                href="#aboneliklerim"
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25"
-              >
-                <SlidersHorizontal size={12} />
-                Abonelikleri düzenle
-              </a>
-            </div>
-          </div>
+        {platforms.length > 0 && (
+          <SubscriptionSummary
+            loading={false}
+            error={null}
+            subscribedPlatforms={subscribedPlatforms}
+            usageCountByProvider={usageCountByProvider}
+          />
         )}
 
         {platforms.length > 0 && (
