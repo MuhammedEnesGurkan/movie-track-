@@ -3,14 +3,29 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errorMessage";
 import { fetchWatchLog } from "@/lib/fetchWatchLog";
+import WrappedDeck from "@/components/WrappedDeck";
+import WrappedTicket from "@/components/WrappedTicket";
+import FilmStrip from "@/components/FilmStrip";
 import {
   MONTH_NAMES,
   computeYearStats,
+  estimateMinutes,
+  formatDays,
+  formatHours,
+  formatLira,
   getAvailableYears,
+  monthsElapsedInYear,
   type WatchLogEntry,
 } from "@/lib/watchStats";
-import type { ProgressStatus, Providers, TitleType, WatchedProgress } from "@/lib/types";
+import type {
+  ProgressStatus,
+  Providers,
+  StreamingPlatform,
+  TitleType,
+  WatchedProgress,
+} from "@/lib/types";
 
 // Günlük büyüdükçe tamamını çekmek anlamsızlaşır; yıllık özet için
 // son birkaç yılı kapsayacak kadarı yeterli.
@@ -36,6 +51,7 @@ export default function WrappedPage() {
   const [log, setLog] = useState<WatchLogEntry[]>([]);
   const [logError, setLogError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [monthlySpend, setMonthlySpend] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -67,6 +83,17 @@ export default function WrappedPage() {
           }))
         );
 
+        // Abonelik gideri: "bölüm başına kaç lira" biletini besliyor.
+        const [{ data: profileRow }, { data: platformRows }] = await Promise.all([
+          supabase.from("profiles").select("subscribed_platforms").eq("user_id", user.id).maybeSingle(),
+          supabase.from("streaming_platforms").select("*"),
+        ]);
+        const subscribedIds: number[] = profileRow?.subscribed_platforms ?? [];
+        const spend = ((platformRows ?? []) as StreamingPlatform[])
+          .filter((p) => subscribedIds.includes(p.tmdb_provider_id))
+          .reduce((sum, p) => sum + (p.monthly_price ?? 0), 0);
+        setMonthlySpend(spend);
+
         // Günlük ayrı hata yönetiyor: geçmiş çekilemese bile kütüphane
         // özeti gösterilmeye devam etsin.
         try {
@@ -75,10 +102,10 @@ export default function WrappedPage() {
           const years = getAvailableYears(entries);
           setSelectedYear(years[0] ?? new Date().getFullYear());
         } catch (err) {
-          setLogError(err instanceof Error ? err.message : "Geçmiş yüklenemedi");
+          setLogError(errorMessage(err));
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Beklenmedik bir hata oluştu");
+        setError(errorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -107,18 +134,29 @@ export default function WrappedPage() {
     );
   }
 
+  // --- Tüm zamanlar (user_progress) ---
   const completedSeries = rows.filter((r) => r.type === "tv" && r.status === "completed").length;
   const completedMovies = rows.filter((r) => r.type === "movie" && r.status === "completed").length;
-  const episodeCount = rows.reduce(
+  const libraryEpisodes = rows.reduce(
     (sum, r) => sum + Object.values(r.progress).reduce((s, eps) => s + eps.length, 0),
     0
   );
-
   const rated = rows.filter((r) => r.rating != null);
+  const topRated = [...rated].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
   const avgRating = rated.length
     ? rated.reduce((sum, r) => sum + (r.rating ?? 0), 0) / rated.length
     : null;
-  const topRated = [...rated].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 3);
+
+  // --- Seçili yıl (watch_events) ---
+  const years = getAvailableYears(log);
+  const year = selectedYear ?? new Date().getFullYear();
+  const stats = computeYearStats(log, year);
+  const totalWatched = stats.movieCount + stats.episodeCount;
+  const minutes = estimateMinutes(stats);
+
+  const months = monthsElapsedInYear(year);
+  const yearSpend = monthlySpend * months;
+  const costPerWatch = totalWatched > 0 ? yearSpend / totalWatched : null;
 
   const providerCounts = new Map<string, number>();
   rows.forEach((r) => {
@@ -128,27 +166,137 @@ export default function WrappedPage() {
   });
   const topProvider = [...providerCounts.entries()].sort((a, b) => b[1] - a[1])[0];
 
-  const hasAnyData = completedSeries + completedMovies + episodeCount > 0;
+  // Bilet numarası ("02 / 05") ancak listenin tamamı bilinince yazılabildiği
+  // için biletler önce render fonksiyonu olarak toplanıp sonra çiziliyor.
+  type TicketRenderer = (index: number, total: number) => React.ReactNode;
+  const ticketRenderers: TicketRenderer[] = [];
 
-  const years = getAvailableYears(log);
-  const year = selectedYear ?? new Date().getFullYear();
-  const yearStats = computeYearStats(log, year);
-  const hasYearData = yearStats.movieCount + yearStats.episodeCount > 0;
+  if (totalWatched > 0) {
+    ticketRenderers.push((i, t) => (
+      <WrappedTicket eyebrow="Seans" index={i} total={t}>
+        <p className="text-xs text-white/40">{year} yılında koltuğa gömüldün</p>
+        <p className="mt-3 font-display text-[5.5rem] leading-[0.85] tracking-wide text-[#ffd9a0]">
+          {formatHours(minutes)}
+        </p>
+        <p className="font-display text-2xl tracking-[0.2em] text-accent">SAAT</p>
+        <p className="mt-4 text-xs leading-relaxed text-white/40">
+          Yaklaşık {formatDays(minutes)} gün. {stats.episodeCount} bölüm ve {stats.movieCount} film,
+          ortalama sürelerle hesaplandı.
+        </p>
+      </WrappedTicket>
+    ));
+
+    ticketRenderers.push((i, t) => (
+      <WrappedTicket eyebrow="Salon" index={i} total={t}>
+        <div className="flex flex-col gap-4">
+          <CountRow value={stats.episodeCount} label="Bölüm" />
+          <CountRow value={stats.movieCount} label="Film" />
+          <CountRow value={stats.seriesCount} label="Farklı dizi" />
+        </div>
+      </WrappedTicket>
+    ));
+
+    ticketRenderers.push((i, t) => (
+      <WrappedTicket eyebrow="Yılın ritmi" index={i} total={t}>
+        <FilmStrip counts={stats.monthlyCounts} />
+        {stats.busiestMonth && stats.busiestMonth.count > 0 && (
+          <p className="mt-5 text-sm leading-relaxed text-white/60">
+            En çok{" "}
+            <span className="font-display text-xl tracking-wide text-accent">
+              {MONTH_NAMES[stats.busiestMonth.month]}
+            </span>{" "}
+            ayında izledin — {stats.busiestMonth.count} kayıt.
+          </p>
+        )}
+      </WrappedTicket>
+    ));
+
+    // İmza bilet: abonelik gideri ile izlenen içeriğin oranı.
+    if (costPerWatch != null && yearSpend > 0) {
+      const pricey = costPerWatch > 25;
+      ticketRenderers.push((i, t) => (
+        <WrappedTicket eyebrow="Hesap" index={i} total={t} tone={pricey ? "alarm" : "default"}>
+          <p className="text-xs text-white/40">İzlediğin her şeyin bilet fiyatı</p>
+          <p
+            className={`mt-3 font-display text-[4.5rem] leading-[0.85] tracking-wide ${
+              pricey ? "text-[#e8674f]" : "text-[#ffd9a0]"
+            }`}
+          >
+            {formatLira(costPerWatch)}
+          </p>
+          <p className="font-display text-xl tracking-[0.15em] text-accent">İZLEME BAŞINA</p>
+          <p className="mt-4 text-xs leading-relaxed text-white/40">
+            {months} ayda {formatLira(yearSpend, 0)} abonelik ödedin, {totalWatched} şey izledin.
+            Güncel abonelik fiyatlarına göre.
+          </p>
+        </WrappedTicket>
+      ));
+    }
+
+    if (stats.rewatchCount > 0) {
+      ticketRenderers.push((i, t) => (
+        <WrappedTicket eyebrow="Tekrar" index={i} total={t}>
+          <p className="font-display text-[5rem] leading-[0.85] tracking-wide text-[#ffd9a0]">
+            {stats.rewatchCount}
+          </p>
+          <p className="font-display text-xl tracking-[0.15em] text-accent">KEZ GERİ DÖNDÜN</p>
+          <p className="mt-4 text-xs leading-relaxed text-white/40">
+            Daha önce izlediğin bir şeyi tekrar açtın. Bazı şeyler bir kez yetmiyor.
+          </p>
+        </WrappedTicket>
+      ));
+    }
+
+    if (topRated || topProvider) {
+      ticketRenderers.push((i, t) => (
+        <WrappedTicket eyebrow="Koçan" index={i} total={t}>
+          <div className="flex flex-col gap-5">
+            {topRated && (
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/30">
+                  En yüksek puanın
+                </p>
+                <p className="mt-1 font-display text-3xl leading-tight tracking-wide text-[#ffd9a0]">
+                  {topRated.title}
+                </p>
+                <p className="text-sm text-accent">
+                  {"★".repeat(topRated.rating ?? 0)}
+                  <span className="text-white/15">{"★".repeat(5 - (topRated.rating ?? 0))}</span>
+                </p>
+              </div>
+            )}
+            {topProvider && (
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/30">
+                  En çok kullandığın platform
+                </p>
+                <p className="mt-1 font-display text-2xl tracking-wide text-white/80">
+                  {topProvider[0]}
+                </p>
+                <p className="text-xs text-white/40">{topProvider[1]} başlık</p>
+              </div>
+            )}
+          </div>
+        </WrappedTicket>
+      ));
+    }
+  }
+
+  const renderedTickets = ticketRenderers.map((render, i) => (
+    <div key={i} className="h-full">
+      {render(i, ticketRenderers.length)}
+    </div>
+  ));
 
   return (
-    <main className="px-4 pb-16 pt-10 md:px-6 lg:px-8">
-      <div className="mx-auto max-w-md">
-        <div className="text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-white/40">
+    <main className="px-4 pb-16 pt-8 md:px-6 lg:px-8">
+      <div className="mx-auto max-w-sm">
+        <header className="text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/30">
             İzleme Özetin
           </p>
-          <h1 className="mt-1 font-display text-4xl tracking-wide text-accent">WatchList</h1>
-        </div>
-
-        {/* Yıl bazlı bölüm: kaynağı watch_events (gerçek izleme tarihleri) */}
-        <section className="mt-8">
-          <div className="flex items-center justify-between gap-3 border-b border-accent/20 pb-2">
-            <h2 className="font-display text-2xl tracking-wide text-accent">{year} Yılın</h2>
+          <div className="mt-1 flex items-center justify-center gap-3">
+            <h1 className="font-display text-5xl tracking-wide text-accent">{year}</h1>
             {years.length > 1 && (
               <select
                 value={year}
@@ -164,153 +312,75 @@ export default function WrappedPage() {
               </select>
             )}
           </div>
+        </header>
 
+        <div className="mt-6">
           {logError ? (
-            <p className="mt-3 text-xs text-red-400">Geçmiş yüklenemedi. {logError}</p>
-          ) : !hasYearData ? (
-            <p className="mt-3 text-xs text-white/40">
-              {year} için henüz kayıt yok. İzleme geçmişi, bir bölümü veya filmi izlendi
-              işaretlediğinde tarihiyle birlikte kaydedilmeye başlar.
-            </p>
-          ) : (
-            <div className="mt-4 flex flex-col gap-3">
-              <div className="grid grid-cols-3 gap-3">
-                <MiniStat value={yearStats.movieCount} label="Film" />
-                <MiniStat value={yearStats.episodeCount} label="Bölüm" />
-                <MiniStat value={yearStats.seriesCount} label="Dizi" />
-              </div>
-
-              <MonthlyChart counts={yearStats.monthlyCounts} />
-
-              {yearStats.busiestMonth && yearStats.busiestMonth.count > 0 && (
-                <p className="text-center text-xs text-white/50">
-                  En yoğun ayın{" "}
-                  <span className="font-semibold text-accent">
-                    {MONTH_NAMES[yearStats.busiestMonth.month]}
-                  </span>{" "}
-                  — {yearStats.busiestMonth.count} kayıt
-                </p>
-              )}
-
-              {yearStats.rewatchCount > 0 && (
-                <p className="text-center text-xs text-white/50">
-                  <span className="font-semibold text-accent">{yearStats.rewatchCount}</span> kez
-                  daha önce izlediğin bir şeye geri döndün
-                </p>
-              )}
+            <div className="rounded-2xl border border-white/10 bg-card p-5 text-center">
+              <p className="text-sm text-red-400">Geçmiş yüklenemedi.</p>
+              <p className="mt-1 break-words text-xs text-white/40">{logError}</p>
             </div>
-          )}
-
-          <Link
-            href="/gunluk"
-            className="mt-4 flex items-center justify-center rounded-xl border border-white/10 py-2 text-xs font-medium text-white/70 transition hover:border-white/25"
-          >
-            Seyir günlüğünü aç
-          </Link>
-        </section>
-
-        {/* Kütüphane geneli: kaynağı user_progress (tüm zamanlar) */}
-        <section className="mt-10">
-          <div className="border-b border-accent/20 pb-2">
-            <h2 className="font-display text-2xl tracking-wide text-accent">Kütüphanen</h2>
-          </div>
-
-          {!hasAnyData ? (
-            <p className="mt-4 text-center text-sm text-white/50">
-              Henüz özet çıkaracak kadar veri yok — birkaç başlık işaretle, sonra buraya dön.
-            </p>
-          ) : (
-            <div className="mt-4 flex flex-col gap-4 text-center">
-              <StatCard value={completedSeries} label="Bitirdiğin dizi" />
-              <StatCard value={completedMovies} label="İzlediğin film" />
-              <StatCard value={episodeCount} label="Toplam bölüm" />
-              {topProvider && (
-                <StatCard
-                  value={topProvider[0]}
-                  label={`En çok kullandığın platform (${topProvider[1]} başlık)`}
-                  isText
-                />
-              )}
-              {avgRating != null && (
-                <StatCard value={`⭐ ${avgRating.toFixed(1)}`} label="Ortalama puanın" isText />
-              )}
-
-              {topRated.length > 0 && (
-                <div className="rounded-2xl border border-accent/20 bg-card p-4 text-left">
-                  <p className="mb-2 text-xs font-semibold text-white/50">
-                    En yüksek puan verdiklerin
-                  </p>
-                  <ul className="flex flex-col gap-1">
-                    {topRated.map((r) => (
-                      <li key={r.tmdb_id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">{r.title}</span>
-                        <span className="ml-2 shrink-0 text-accent">⭐ {r.rating}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+          ) : renderedTickets.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-card p-6 text-center">
+              <p className="text-sm text-white/60">{year} için henüz bilet kesilmedi.</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/40">
+                Bir bölümü veya filmi izlendi işaretlediğinde tarihiyle kaydedilir ve özetin
+                buradan birikmeye başlar.
+              </p>
+              <Link
+                href="/"
+                className="mt-4 inline-flex rounded-xl border border-white/10 px-4 py-2 text-xs font-medium text-white/70 transition hover:border-white/25"
+              >
+                İçerik bul
+              </Link>
             </div>
+          ) : (
+            <WrappedDeck tickets={renderedTickets} />
           )}
-        </section>
+        </div>
 
-        <p className="mt-10 text-center text-xs text-white/30">
-          Ekran görüntüsü alıp paylaşabilirsin.
-        </p>
+        <Link
+          href="/gunluk"
+          className="mt-6 flex items-center justify-center rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white/70 transition hover:border-white/25"
+        >
+          Seyir günlüğünü aç
+        </Link>
+
+        {/* Tüm zamanlar: kaynağı user_progress, geçmiş kaydı öncesini de kapsar */}
+        <section className="mt-10 border-t border-white/5 pt-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/30">
+            Tüm zamanlar
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+            <AllTimeRow label="Bitirdiğin dizi" value={completedSeries} />
+            <AllTimeRow label="İzlediğin film" value={completedMovies} />
+            <AllTimeRow label="Toplam bölüm" value={libraryEpisodes} />
+            {avgRating != null && (
+              <AllTimeRow label="Ortalama puanın" value={`★ ${avgRating.toFixed(1)}`} />
+            )}
+          </dl>
+        </section>
       </div>
     </main>
   );
 }
 
-function MonthlyChart({ counts }: { counts: number[] }) {
-  const max = Math.max(...counts, 1);
-
+function CountRow({ value, label }: { value: number; label: string }) {
   return (
-    <div className="rounded-2xl border border-white/5 bg-card p-4">
-      <p className="mb-3 text-xs font-semibold text-white/50">Aylara göre</p>
-      <div className="flex items-end gap-1">
-        {counts.map((count, month) => (
-          <div key={month} className="flex flex-1 flex-col items-center gap-1">
-            {/* Yüzde yükseklik çözülebilsin diye çubuk sabit yükseklikli bir kutuya sarılı */}
-            <div className="flex h-20 w-full items-end">
-              <div
-                className={`w-full rounded-t-sm ${count > 0 ? "bg-accent/70" : "bg-white/5"}`}
-                style={{ height: `${count > 0 ? Math.max((count / max) * 100, 6) : 3}%` }}
-                title={`${MONTH_NAMES[month]}: ${count}`}
-              />
-            </div>
-            <span className="text-[9px] text-white/30">{MONTH_NAMES[month].slice(0, 1)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MiniStat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="rounded-2xl border border-white/5 bg-card p-3 text-center">
-      <p className="font-display text-3xl tracking-wide text-accent">{value}</p>
-      <p className="mt-0.5 text-[11px] text-white/50">{label}</p>
-    </div>
-  );
-}
-
-function StatCard({
-  value,
-  label,
-  isText,
-}: {
-  value: number | string;
-  label: string;
-  isText?: boolean;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/5 bg-card p-6">
-      <p className={`font-display tracking-wide text-accent ${isText ? "text-2xl" : "text-5xl"}`}>
+    <div className="flex items-baseline gap-3 border-b border-white/5 pb-3 last:border-0">
+      <span className="font-display text-5xl leading-none tracking-wide text-[#ffd9a0]">
         {value}
-      </p>
-      <p className="mt-1 text-xs text-white/50">{label}</p>
+      </span>
+      <span className="text-xs uppercase tracking-[0.2em] text-white/40">{label}</span>
+    </div>
+  );
+}
+
+function AllTimeRow({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div>
+      <dt className="text-[11px] text-white/40">{label}</dt>
+      <dd className="font-display text-2xl tracking-wide text-accent">{value}</dd>
     </div>
   );
 }

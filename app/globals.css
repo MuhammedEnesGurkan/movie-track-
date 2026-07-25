@@ -13,3 +13,60 @@ body {
     0 60%, 6px 55%, 0 50%, 6px 45%, 0 40%
   );
 }
+
+/* --- İzleme özeti: bilet koçanı --- */
+
+/* Yırtma çizgisinin iki ucundaki delikler. Sayfa zemini opak olduğu için
+   zemin renginde iki daire "delinmiş" izlenimi veriyor ve kartın kenarlığı
+   mask ile bozulmadan kalıyor. */
+.ticket-notch::before,
+.ticket-notch::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  height: 20px;
+  width: 20px;
+  border-radius: 9999px;
+  background-color: #120f0e;
+  transform: translateY(-50%);
+}
+
+.ticket-notch::before {
+  left: -11px;
+}
+
+.ticket-notch::after {
+  right: -11px;
+}
+
+/* Kart girişi. Azaltılmış hareket tercihinde tamamen kapanır. */
+@keyframes ticket-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ticket-rise {
+  animation: ticket-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Yatay kaydırmada kaydırma çubuğunu gizle, snap davranışı kalsın */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket-rise {
+    animation: none;
+  }
+}

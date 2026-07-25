@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errorMessage";
 import WatchLogRow from "@/components/WatchLogRow";
 import { fetchWatchLog } from "@/lib/fetchWatchLog";
 import { groupByDay, type WatchLogEntry } from "@/lib/watchStats";
@@ -44,7 +45,7 @@ export default function WatchLogPage() {
       try {
         await load(PAGE_SIZE);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Beklenmedik bir hata oluştu");
+        setError(errorMessage(err));
       } finally {
         setLoading(false);
       }
@@ -58,7 +59,7 @@ export default function WatchLogPage() {
       await load(nextLimit);
       setLimit(nextLimit);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Beklenmedik bir hata oluştu");
+      setError(errorMessage(err));
     } finally {
       setLoadingMore(false);
     }
