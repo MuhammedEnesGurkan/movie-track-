@@ -101,6 +101,31 @@ export function monthsElapsedInYear(year: number, now: Date = new Date()): numbe
   return now.getMonth() + 1;
 }
 
+// Yılın posterleri, en çok izlenen başlık önce gelecek şekilde.
+// Poster duvarı ve final kolajı bunu kullanır.
+export function getYearPosters(
+  entries: WatchLogEntry[],
+  year: number,
+  max = 12
+): { key: string; posterPath: string; title: string }[] {
+  const byTitle = new Map<string, { posterPath: string; title: string; count: number }>();
+
+  for (const e of entries) {
+    if (!e.poster_path) continue;
+    if (new Date(e.watched_at).getFullYear() !== year) continue;
+
+    const key = `${e.type}-${e.tmdb_id}`;
+    const existing = byTitle.get(key);
+    if (existing) existing.count += 1;
+    else byTitle.set(key, { posterPath: e.poster_path, title: e.title, count: 1 });
+  }
+
+  return [...byTitle.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, max)
+    .map(([key, v]) => ({ key, posterPath: v.posterPath, title: v.title }));
+}
+
 export type WatchLogDay = {
   key: string;
   label: string;
