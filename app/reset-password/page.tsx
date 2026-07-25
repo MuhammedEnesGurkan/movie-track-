@@ -39,7 +39,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="flex min-h-app flex-col items-center justify-center px-6">
       <h1 className="text-lg font-bold">Yeni Şifre Belirle</h1>
 
       <form onSubmit={handleSubmit} className="mt-8 w-full max-w-xs">

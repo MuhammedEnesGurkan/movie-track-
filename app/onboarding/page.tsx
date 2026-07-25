@@ -3,7 +3,7 @@ import { Clapperboard } from "lucide-react";
 
 export default function OnboardingPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+    <div className="flex min-h-app flex-col items-center justify-center px-6 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/5 bg-card text-accent">
         <Clapperboard size={28} />
       </div>

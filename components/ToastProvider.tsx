@@ -33,7 +33,7 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
       {toast && (
         <div
           key={toast.id}
-          className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4 lg:bottom-8"
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] z-[60] flex justify-center px-4 lg:bottom-8"
         >
           <div
             className={`ticket-stub flex animate-ticket-in items-center gap-3 border-l-4 bg-card py-2.5 pl-4 pr-5 shadow-lg shadow-black/40 ${

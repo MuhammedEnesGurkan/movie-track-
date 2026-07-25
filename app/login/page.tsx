@@ -117,7 +117,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="flex min-h-app flex-col items-center justify-center px-6">
       <div className="flex flex-col items-center gap-2">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/5 bg-card text-accent">
           <Clapperboard size={28} />

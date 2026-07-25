@@ -4,6 +4,99 @@
 
 body {
   background-color: #120f0e;
+  /* iOS yatay çevrildiğinde metni kendiliğinden büyütmesin */
+  -webkit-text-size-adjust: 100%;
+  /* Dokunulan öğelerdeki gri parlama kutusu */
+  -webkit-tap-highlight-color: transparent;
+  /* Sayfa sonunda tüm belgenin lastik gibi esnemesini sınırla */
+  overscroll-behavior-y: none;
+}
+
+/* ==========================================================================
+   Mobil / iOS temelleri
+   ========================================================================== */
+
+/* Alt sekme çubuğunun kapladığı yükseklik: kendi boyu + ana ekran çubuğu.
+   viewport-fit=cover olmadan env() 0 döner, o yüzden layout'ta ayarlandı. */
+:root {
+  --tabbar-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --tabbar-h: 0px;
+  }
+}
+
+/* iOS'ta 100vh görünür alandan büyüktür (adres çubuğu sayılmaz), içerik
+   alta taşar. dvh destekleniyorsa onu kullan, yoksa vh'de kal. */
+.min-h-app {
+  min-height: 100vh;
+}
+
+@supports (min-height: 100dvh) {
+  .min-h-app {
+    min-height: 100dvh;
+  }
+}
+
+/* Tam ekran kaydırma alanı (izleme özeti). Sekme çubuğu düşülür.
+   svh = en küçük görünür alan; adres çubuğu açılıp kapanırken sahnelerin
+   boyu zıplamasın diye dvh yerine bu tercih edildi. */
+.h-app-scroller {
+  height: calc(100vh - var(--tabbar-h));
+}
+
+@supports (height: 100svh) {
+  .h-app-scroller {
+    height: calc(100svh - var(--tabbar-h));
+  }
+}
+
+.pb-tabbar {
+  padding-bottom: var(--tabbar-h);
+}
+
+@media (min-width: 1024px) {
+  .pb-tabbar {
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* Kaydırma alanı, layout'un alt boşluğunu kendi içinde karşılar. */
+.mb-cancel-tabbar {
+  margin-bottom: calc(-1 * var(--tabbar-h));
+}
+
+@media (min-width: 1024px) {
+  .mb-cancel-tabbar {
+    margin-bottom: -1.5rem;
+  }
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Yatay modda çentik sol/sağda yer kapladığı için içerik altında kalmasın. */
+.px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* iOS Safari, yazı boyutu 16px'in altındaki bir form alanına odaklanınca
+   sayfayı zorla yakınlaştırır ve geri çıkmaz. Dokunmatik boyutlarda tüm
+   form alanlarını 16px'e sabitleyerek bunu engelliyoruz.
+   !important gerekli: element seçicisi (0-0-1) Tailwind'in .text-sm
+   sınıfını (0-1-0) yenemiyor. Kural yalnızca 1024px altında geçerli ve
+   tek tek sınıf değiştirmeye kıyasla ileride eklenecek alanları da
+   kendiliğinden kapsıyor. */
+@media (max-width: 1023px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 .ticket-stub {
