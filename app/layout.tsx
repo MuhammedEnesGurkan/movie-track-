@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Bebas_Neue } from "next/font/google";
 import { Suspense } from "react";
 import TabBar from "@/components/TabBar";
@@ -15,6 +15,18 @@ export const metadata: Metadata = {
   description: "Dizi/film takip ve nereden izlenir",
 };
 
+// viewport-fit=cover olmadan iOS'ta env(safe-area-inset-*) hep 0 döner;
+// çentik ve ana ekran çubuğu alanları hesaplanamaz.
+// maximumScale bilerek kısıtlanmıyor: yakınlaştırmayı engellemek erişilebilirliği
+// bozar. iOS'un odakta otomatik yakınlaştırması bunun yerine form alanlarının
+// yazı boyutu 16px'e çekilerek çözülüyor (globals.css).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#120f0e",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="tr">
@@ -24,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense fallback={null}>
             <Sidebar />
           </Suspense>
-          <div className="mx-auto min-h-screen max-w-md pb-20 md:max-w-3xl lg:max-w-6xl lg:pb-6 lg:pl-56">
+          <div className="pb-tabbar px-safe mx-auto min-h-app max-w-md md:max-w-3xl lg:max-w-6xl lg:pl-56">
             {children}
           </div>
           <Suspense fallback={null}>

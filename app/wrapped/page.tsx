@@ -178,7 +178,7 @@ export default function WrappedPage() {
   const topProvider = [...providerCounts.entries()].sort((a, b) => b[1] - a[1])[0];
 
   const shell =
-    "no-scrollbar -mb-20 h-[calc(100svh-4rem)] snap-y snap-mandatory overflow-y-auto lg:-mb-6 lg:h-[100svh]";
+    "no-scrollbar mb-cancel-tabbar h-app-scroller snap-y snap-mandatory overflow-y-auto overscroll-y-contain";
 
   if (logError) {
     return (
