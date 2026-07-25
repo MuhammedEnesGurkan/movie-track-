@@ -135,15 +135,39 @@ export default function WrappedPage() {
   const year = selectedYear ?? new Date().getFullYear();
   const stats = computeYearStats(log, year);
   const totalWatched = stats.movieCount + stats.episodeCount;
+  const hasYearData = totalWatched > 0;
   const minutes = estimateMinutes(stats);
-  const posters = getYearPosters(log, year, 12);
 
   const months = monthsElapsedInYear(year);
   const yearSpend = monthlySpend * months;
-  const costPerWatch = totalWatched > 0 ? yearSpend / totalWatched : null;
+  const costPerWatch = hasYearData ? yearSpend / totalWatched : null;
+
+  // Tüm zamanlar (user_progress). Geçmiş kaydı (watch_events) yalnızca
+  // eklendiği günden beri dolduğu için, ondan önceki kütüphane burada durur;
+  // yıl verisi olmasa bile özetin gösterecek bir şeyi olsun.
+  const librarySeries = rows.filter((r) => r.type === "tv" && r.status === "completed").length;
+  const libraryMovies = rows.filter((r) => r.type === "movie" && r.status === "completed").length;
+  const libraryEpisodes = rows.reduce(
+    (sum, r) => sum + Object.values(r.progress).reduce((s, eps) => s + eps.length, 0),
+    0
+  );
+  const hasLibrary = librarySeries + libraryMovies + libraryEpisodes > 0;
 
   const rated = rows.filter((r) => r.rating != null);
   const topRated = [...rated].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
+
+  // Poster duvarı önce yılın izlediklerinden beslenir; yıl boşsa kütüphaneye düşer.
+  const yearPosters = getYearPosters(log, year, 12);
+  const libraryPosters = rows
+    .filter((r) => r.poster_path)
+    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+    .slice(0, 12)
+    .map((r) => ({
+      key: `${r.type}-${r.tmdb_id}`,
+      posterPath: r.poster_path as string,
+      title: r.title,
+    }));
+  const posters = yearPosters.length > 0 ? yearPosters : libraryPosters;
 
   const providerCounts = new Map<string, number>();
   rows.forEach((r) =>
@@ -165,7 +189,8 @@ export default function WrappedPage() {
     );
   }
 
-  if (totalWatched === 0) {
+  // Ne yıl kaydı ne de kütüphane varsa gösterilecek bir şey yok.
+  if (!hasYearData && !hasLibrary) {
     return (
       <main className={shell}>
         <Scene tint="amber" slug="Perde">
@@ -173,8 +198,8 @@ export default function WrappedPage() {
             {year}
           </p>
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
-            Bu yıl için henüz perde açılmadı. Bir bölümü izlendi işaretlediğin an kayıt başlar ve
-            özetin buradan oluşur.
+            Perde henüz açılmadı. Bir bölümü izlendi işaretlediğin an kayıt başlar ve özetin
+            buradan oluşur.
           </p>
           <Link
             href="/"
@@ -198,7 +223,9 @@ export default function WrappedPage() {
           {year}
         </h1>
         <p className="max-w-xs text-sm leading-relaxed text-white/55">
-          Bu yıl neyi, ne zaman, kaç kez izlediğini kaydettin. Işıkları kısıp aşağı kaydır.
+          {hasYearData
+            ? "Bu yıl neyi, ne zaman, kaç kez izlediğini kaydettin. Işıkları kısıp aşağı kaydır."
+            : "Bu yılın günlüğü henüz boş — ama kütüphanen dolu. Işıkları kısıp aşağı kaydır."}
         </p>
         <div className="mt-8 flex items-center gap-4">
           <ChevronDown size={18} className="animate-bounce text-accent/70" />
@@ -219,6 +246,9 @@ export default function WrappedPage() {
         </div>
       </Scene>
 
+      {/* Yıl sahneleri yalnızca o yıla ait günlük kaydı varsa oynar. */}
+      {hasYearData && (
+        <>
       {/* 2 — Süre: tek dev rakam */}
       <Scene tint="gece" slug="Süre">
         <p className="text-sm text-white/50">Perde başında geçirdiğin süre</p>
@@ -305,16 +335,36 @@ export default function WrappedPage() {
           <p className="mt-4 text-[11px] text-white/30">Güncel abonelik fiyatlarına göre.</p>
         </Scene>
       )}
+        </>
+      )}
 
-      {/* 6 — Zirve: posterin kendisi kompozisyonun merkezi */}
+      {/* 6 — Kütüphanen: tüm zamanlar, günlük kaydından önceki geçmiş dahil */}
+      {hasLibrary && (
+        <Scene tint="gece" slug="Kütüphane">
+          <p className="text-sm text-white/50">Kütüphanende biriken</p>
+          <div className="mt-6 flex flex-col gap-5">
+            <LibraryLine value={libraryEpisodes} label="bölüm" />
+            <LibraryLine value={librarySeries} label="bitirdiğin dizi" />
+            <LibraryLine value={libraryMovies} label="izlediğin film" />
+          </div>
+          {!hasYearData && (
+            <p className="mt-8 max-w-xs text-xs leading-relaxed text-white/35">
+              Bunlar tüm zamanların. Tarihli günlük kaydı yeni başladı, o yüzden {year} sahneleri
+              henüz oynamıyor — bundan sonra işaretlediğin her şey oraya da düşecek.
+            </p>
+          )}
+        </Scene>
+      )}
+
+      {/* 7 — Zirve: posterin kendisi kompozisyonun merkezi */}
       {topRated && (
-        <Scene tint="amber" slug="Zirve">
-          <p className="text-sm text-white/50">Yılın en yükseği</p>
+        <Scene tint="mor" slug="Zirve">
+          <p className="text-sm text-white/50">En yükseği</p>
           <div className="mt-5 flex items-end gap-5">
             {topRated.poster_path && (
               <div
                 className="relative aspect-[2/3] w-32 shrink-0 overflow-hidden rounded-xl border border-white/10 sm:w-40"
-                style={{ boxShadow: `0 0 60px -12px ${tintInk("amber")}` }}
+                style={{ boxShadow: `0 0 60px -12px ${tintInk("mor")}` }}
               >
                 <Image
                   src={`${TMDB_IMG}/w342${topRated.poster_path}`}
@@ -326,10 +376,13 @@ export default function WrappedPage() {
               </div>
             )}
             <div className="min-w-0 pb-1">
-              <p className="font-display text-[clamp(2rem,9vw,3rem)] leading-[0.95] tracking-wide text-accent">
+              <p
+                className="font-display text-[clamp(2rem,9vw,3rem)] leading-[0.95] tracking-wide"
+                style={{ color: tintInk("mor") }}
+              >
                 {topRated.title}
               </p>
-              <p className="mt-2 text-xl tracking-[0.15em] text-accent">
+              <p className="mt-2 text-xl tracking-[0.15em]" style={{ color: tintInk("mor") }}>
                 {"★".repeat(topRated.rating ?? 0)}
                 <span className="text-white/15">{"★".repeat(5 - (topRated.rating ?? 0))}</span>
               </p>
@@ -343,14 +396,31 @@ export default function WrappedPage() {
         </Scene>
       )}
 
-      {/* 7 — Final: paylaşılacak kart */}
+      {/* 8 — Final: paylaşılacak kart. Yıl kaydı yoksa kütüphane rakamlarını taşır. */}
       <Scene tint="amber" slug="Koçan">
         <ShareCard
-          year={year}
-          hours={formatHours(minutes)}
-          episodes={stats.episodeCount}
-          movies={stats.movieCount}
-          series={stats.seriesCount}
+          heading={hasYearData ? String(year) : "Kütüphanem"}
+          shareText={
+            hasYearData
+              ? `${year} izleme özetim: ${formatHours(minutes)} saat, ${stats.episodeCount} bölüm, ${stats.movieCount} film.`
+              : `İzleme kütüphanem: ${libraryEpisodes} bölüm, ${librarySeries} dizi, ${libraryMovies} film.`
+          }
+          cells={
+            hasYearData
+              ? [
+                  { value: formatHours(minutes), label: "saat" },
+                  { value: stats.episodeCount, label: "bölüm" },
+                  { value: stats.movieCount, label: "film" },
+                ]
+              : [
+                  { value: libraryEpisodes, label: "bölüm" },
+                  { value: librarySeries, label: "dizi" },
+                  { value: libraryMovies, label: "film" },
+                ]
+          }
+          footnote={
+            hasYearData ? `${stats.seriesCount} farklı dizi` : "Tüm zamanlar"
+          }
           posters={posters}
         />
       </Scene>
@@ -385,35 +455,48 @@ function BigCount({
   );
 }
 
+// Kütüphane sahnesi: "Sayım"ın diyagonalinden ayrışsın diye sola hizalı,
+// aralarında ince çizgi olan bir liste.
+function LibraryLine({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="flex items-baseline gap-3 border-b border-white/5 pb-4 last:border-0 last:pb-0">
+      <span
+        className="font-display text-[clamp(3rem,14vw,5rem)] leading-[0.8] tracking-wide"
+        style={{ color: tintInk("gece") }}
+      >
+        {value}
+      </span>
+      <span className="text-xs uppercase tracking-[0.25em] text-white/45">{label}</span>
+    </div>
+  );
+}
+
 function ShareCard({
-  year,
-  hours,
-  episodes,
-  movies,
-  series,
+  heading,
+  shareText,
+  cells,
+  footnote,
   posters,
 }: {
-  year: number;
-  hours: string;
-  episodes: number;
-  movies: number;
-  series: number;
+  heading: string;
+  shareText: string;
+  cells: { value: number | string; label: string }[];
+  footnote: string;
   posters: { key: string; posterPath: string; title: string }[];
 }) {
   const [shared, setShared] = useState(false);
 
   async function handleShare() {
-    const text = `${year} izleme özetim: ${hours} saat, ${episodes} bölüm, ${movies} film.`;
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: `Movie Track ${year}`, text });
+        await navigator.share({ title: `Movie Track — ${heading}`, text: shareText });
         return;
       } catch {
         // Kullanıcı paylaşımı iptal etti; sessizce panoya düşüyoruz.
       }
     }
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(shareText);
       setShared(true);
       setTimeout(() => setShared(false), 2200);
     } catch {
@@ -427,16 +510,23 @@ function ShareCard({
         <PosterWall posters={posters} variant="collage" />
 
         <div className="mt-4 flex items-end justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/35">
               İzleme Özeti
             </p>
-            <p className="font-display text-6xl leading-[0.8] tracking-wide text-accent">{year}</p>
+            {/* Yıl kısa, "Kütüphanem" uzun; sabit boyut uzun başlığı kırpıyordu. */}
+            <p
+              className={`font-display leading-[0.85] tracking-wide text-accent ${
+                heading.length > 6 ? "text-3xl" : "text-5xl"
+              }`}
+            >
+              {heading}
+            </p>
           </div>
           <dl className="grid shrink-0 grid-cols-3 gap-x-4 text-right">
-            <Cell value={hours} label="saat" />
-            <Cell value={episodes} label="bölüm" />
-            <Cell value={movies} label="film" />
+            {cells.map((cell) => (
+              <Cell key={cell.label} value={cell.value} label={cell.label} />
+            ))}
           </dl>
         </div>
 
@@ -444,7 +534,7 @@ function ShareCard({
           <span className="font-display text-base tracking-[0.25em] text-white/45">
             MOVIE TRACK
           </span>
-          <span className="text-[10px] text-white/30">{series} farklı dizi</span>
+          <span className="text-[10px] text-white/30">{footnote}</span>
         </div>
       </div>
 
