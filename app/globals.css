@@ -13,3 +13,107 @@ body {
     0 60%, 6px 55%, 0 50%, 6px 45%, 0 40%
   );
 }
+
+/* ==========================================================================
+   İzleme Özeti — "Gece Seansı"
+   Karanlık salon, arkadan gelen projektör huzmesi, film grain'i.
+   Huzmenin rengi sahneden sahneye değişir; doku ve ışık mantığı sabit kalır.
+   ========================================================================== */
+
+/* Projektör huzmesi. Rengi --beam değişkeninden gelir, sahne belirler. */
+.beam::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 65% at 50% -10%, var(--beam) 0%, transparent 62%),
+    radial-gradient(80% 50% at 50% 110%, rgb(0 0 0 / 0.55) 0%, transparent 70%);
+}
+
+/* Salon karanlığı: kenarları içe doğru söndürür. */
+.vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 9rem 2rem rgb(9 7 6 / 0.9);
+}
+
+/* Film grain'i. Tek bir SVG gürültüsü, dış kaynak yok. */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Sahne içeriği görünür alana girince yükselerek belirir. */
+.reveal > * {
+  opacity: 0;
+  transform: translateY(1.5rem);
+}
+
+.reveal-in > * {
+  animation: scene-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.reveal-in > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+.reveal-in > *:nth-child(3) {
+  animation-delay: 180ms;
+}
+.reveal-in > *:nth-child(4) {
+  animation-delay: 260ms;
+}
+
+@keyframes scene-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Poster duvarı: ışığın içinde çok yavaş süzülür. */
+@keyframes poster-drift {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-2.5%);
+  }
+}
+
+.poster-drift {
+  animation: poster-drift 18s ease-in-out infinite alternate;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal > *,
+  .reveal-in > * {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .poster-drift {
+    animation: none;
+  }
+}

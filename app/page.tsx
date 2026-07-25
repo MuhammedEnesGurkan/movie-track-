@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search as SearchIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errorMessage";
 import PosterCard from "@/components/PosterCard";
 import ContinueWatchingCard from "@/components/ContinueWatchingCard";
 import AvailableFromWatchlist, { type AvailableItem } from "@/components/AvailableFromWatchlist";
@@ -41,10 +42,6 @@ function getProgressSummary(type: TitleType, progress: WatchedProgress): string 
   const episodes = progress[String(lastSeason)] ?? [];
   const lastEpisode = Math.max(...episodes);
   return `S${lastSeason}B${lastEpisode}'te kaldın`;
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : "Beklenmedik bir hata oluştu";
 }
 
 export default function HomePage() {

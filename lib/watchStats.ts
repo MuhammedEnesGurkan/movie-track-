@@ -69,6 +69,63 @@ export function computeYearStats(entries: WatchLogEntry[], year: number): YearSt
   };
 }
 
+// TMDB bölüm/film sürelerini başlık başına tutmuyoruz; ekran süresi bu iki
+// ortalamayla tahmin ediliyor ve arayüzde "yaklaşık" olarak etiketleniyor.
+export const AVG_EPISODE_MINUTES = 42;
+export const AVG_MOVIE_MINUTES = 115;
+
+export function estimateMinutes(stats: YearStats): number {
+  return stats.episodeCount * AVG_EPISODE_MINUTES + stats.movieCount * AVG_MOVIE_MINUTES;
+}
+
+export function formatHours(minutes: number): string {
+  return Math.round(minutes / 60).toLocaleString("tr-TR");
+}
+
+export function formatDays(minutes: number): string {
+  return (minutes / 60 / 24).toLocaleString("tr-TR", { maximumFractionDigits: 1 });
+}
+
+export function formatLira(amount: number, fractionDigits = 2): string {
+  return `₺${amount.toLocaleString("tr-TR", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}`;
+}
+
+// Yıl içinde aboneliğin kaç ay boyunca ödendiğini varsayacağımız süre.
+// İçinde bulunulan yıl için geçen ay sayısı, geçmiş yıllar için 12.
+export function monthsElapsedInYear(year: number, now: Date = new Date()): number {
+  if (year < now.getFullYear()) return 12;
+  if (year > now.getFullYear()) return 0;
+  return now.getMonth() + 1;
+}
+
+// Yılın posterleri, en çok izlenen başlık önce gelecek şekilde.
+// Poster duvarı ve final kolajı bunu kullanır.
+export function getYearPosters(
+  entries: WatchLogEntry[],
+  year: number,
+  max = 12
+): { key: string; posterPath: string; title: string }[] {
+  const byTitle = new Map<string, { posterPath: string; title: string; count: number }>();
+
+  for (const e of entries) {
+    if (!e.poster_path) continue;
+    if (new Date(e.watched_at).getFullYear() !== year) continue;
+
+    const key = `${e.type}-${e.tmdb_id}`;
+    const existing = byTitle.get(key);
+    if (existing) existing.count += 1;
+    else byTitle.set(key, { posterPath: e.poster_path, title: e.title, count: 1 });
+  }
+
+  return [...byTitle.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, max)
+    .map(([key, v]) => ({ key, posterPath: v.posterPath, title: v.title }));
+}
+
 export type WatchLogDay = {
   key: string;
   label: string;

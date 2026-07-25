@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LogOut, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/errorMessage";
 import SubscriptionSummary from "@/components/SubscriptionSummary";
 import type { ProgressStatus, Providers, StreamingPlatform, TitleType, WatchedProgress } from "@/lib/types";
 
@@ -21,10 +22,6 @@ type LibraryItem = {
   providers: Providers;
   rating: number | null;
 };
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : "Beklenmedik bir hata oluştu";
-}
 
 const TABS: { value: ProgressStatus; label: string }[] = [
   { value: "watching", label: "İzliyorum" },
