@@ -1,9 +1,25 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { withTimeout } from "@/lib/withTimeout";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
+// Middleware her istekte çalışır ve dönmezse Vercel tüm siteye 504 verir
+// (MIDDLEWARE_INVOCATION_TIMEOUT). Supabase'e yapılan çağrılar ağ üzerinden
+// olduğu için yavaşlayabilir ya da hiç dönmeyebilir; bu yüzden hepsi süre
+// sınırlı. Normal Supabase yanıtı 50-300ms mertebesinde.
+const SUPABASE_TIMEOUT_MS = 3000;
+
+function redirectTo(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  return NextResponse.redirect(url);
+}
+
 export async function updateSession(request: NextRequest) {
+  const isAdminPath = request.nextUrl.pathname.startsWith("/admin");
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -25,29 +41,40 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Token süresi dolmuşsa burada yeniler; session cookie'sini taze tutar.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Oturum tazeleme kritik yol değil, bir iyileştirme: Supabase'e ulaşılamazsa
+  // isteği geçir, sayfa kendi içinde "giriş yapılmamış" durumunu zaten ele
+  // alıyor. Siteyi tamamen düşürmektense bozulmuş hâlde ayakta tutmak daha iyi.
+  // /admin bunun istisnası: orada doğrulanamayan istek içeri alınmaz.
+  let user = null;
 
-  if (request.nextUrl.pathname.startsWith("/admin")) {
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+  try {
+    const result = await withTimeout(supabase.auth.getUser(), SUPABASE_TIMEOUT_MS);
+    if (result === null) {
+      return isAdminPath ? redirectTo(request, "/") : response;
     }
+    user = result.data.user;
+  } catch {
+    return isAdminPath ? redirectTo(request, "/") : response;
+  }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("user_id", user.id)
-      .maybeSingle();
+  if (!isAdminPath) {
+    return response;
+  }
 
-    if (!profile?.is_admin) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/";
-      return NextResponse.redirect(url);
+  if (!user) {
+    return redirectTo(request, "/login");
+  }
+
+  try {
+    const result = await withTimeout(
+      supabase.from("profiles").select("is_admin").eq("user_id", user.id).maybeSingle(),
+      SUPABASE_TIMEOUT_MS
+    );
+    if (!result?.data?.is_admin) {
+      return redirectTo(request, "/");
     }
+  } catch {
+    return redirectTo(request, "/");
   }
 
   return response;
